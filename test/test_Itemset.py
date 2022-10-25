@@ -1,5 +1,6 @@
 import unittest
-from package.itemset import ItemsetFlyweight 
+from itemset import ItemsetFlyweight 
+
 class TestItemset(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(TestItemset, self).__init__(*args, **kwargs)
@@ -9,10 +10,7 @@ class TestItemset(unittest.TestCase):
             '2': [0.5, 0.5]
         }
         price = [60,260,70]
-        self._itemset = ItemsetFlyweight(number_of_items = 3,
-                        price = price,
-                        number_of_topic = 2,
-                        topic = topic)
+        self._itemset = ItemsetFlyweight(price = price, topic = topic)
   
     def test_union(self):
         # NOTICE! the aggregation is not determinated

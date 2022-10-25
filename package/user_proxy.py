@@ -1,5 +1,5 @@
-from .social_graph import SN_Graph
-from .itemset import ItemsetFlyweight, Itemset
+from social_graph import SN_Graph
+from itemset import ItemsetFlyweight, Itemset
 import sys
 from itertools import combinations
 
@@ -47,7 +47,7 @@ class UsersProxy():
                 float: return the VP ratio with the pair in "main itemset" stage.
                 If the result adopted itemset of the user minus the itemset is empty, return None
         '''
-        adopted = self._itemset[self._graph.nodes[user_id]["adopted_set"]]
+        adopted = self._graph.nodes[user_id]["adopted_set"]
         if not isinstance(itemset, Itemset):
             itemset = self._itemset[itemset]
         if type(itemset) == str:
@@ -58,7 +58,7 @@ class UsersProxy():
   
     def _adoptMainItemset(self, user_id):
         '''
-            從使用者的 desired set 找出CP值最高的商品組合當作主商品並且回傳
+            從使用者的 desired set 找出CP值最高的商品組合當作主商品並且回傳，若 desired set 全等於 adopted set，則回傳 None
 
             Args:
                 user_id (str): user id
@@ -70,35 +70,35 @@ class UsersProxy():
         if user_id not in self._graph:
             raise ValueError("The user id is not found.")
 
-    # If desired set is empty, return None
-        desired_items = self._graph.nodes[user_id]["desired_set"]
-        adopted_items = self._graph.nodes[user_id]["adopted_set"]
-        if desired_items == None:
-            return None
+        
 
-        desired_set = self._itemset[desired_items]
-        adopted_set = self._itemset[adopted_items]
+        desired_set = self._graph.nodes[user_id]["desired_set"]
+        adopted_set = self._graph.nodes[user_id]["adopted_set"]
+
+        # If desired set is empty, or adopted set and desired set is equivalance, return None
+        if desired_set == None or adopted_set == desired_set:
+            return None
 
         if adopted_set == None:
             adopted_set = set()
-
-    # If adopted set and desired set is equivalance, return None 
-        if adopted_set == desired_set:
-            return None
+            
 
         max_VP = sys.float_info.min
         maxVP_mainItemset = None
 
-        for length in range(len(desired_items)):
-            for c in combinations(desired_items, length+1):
+        for length in range(len(desired_set.numbering)):
+            for c in combinations(desired_set.numbering, length+1):
                 c = set(c)
-                if adopted_set.issubset(c) and not adopted_set == c:
+                if self._itemset.issubset(adopted_set, c) and not adopted_set == c:
 
                     VP = self._VP_ratio(user_id, c)
                     if VP > max_VP:
                         max_VP = VP
                         maxVP_mainItemset = c
 
+        if self._itemset[maxVP_mainItemset] == adopted_set:
+            return None
+        
         return {"items": self._itemset[maxVP_mainItemset], "VP": max_VP} if maxVP_mainItemset != None else None
 
     def _addtionallyAdoptVP(self, user_id, mainItemset, itemset, coupon):
@@ -138,18 +138,19 @@ class UsersProxy():
                 mainItemset(Itemset): 第一購買階段決定的商品組合，此組合為考量的商品加上曾購買過的商品
         '''
         max_VP = sys.float_info.min
-        maxDict = None # {"items": None, "VP": max_VP, "coupon": None}
+        maxDict = {"items": None, "VP": max_VP, "coupon": None}
 
-        for key, itemset in self._itemset.items():
+        for key, itemset_instance in self._itemset:
             # Find the itemset X which is a superset of main itemset
-            if itemset.issuperset(mainItemset):
+            if self._itemset.issuperset(itemset_instance, mainItemset):
                 for i in range(len(self._coupons)):
                     # X 必須超過滿額門檻
-                    if self._itemset.intersection(itemset, self._coupons[i].accItemset).price > self._coupons[i].accThreshold:
-                        VP = self._addtionallyAdoptVP(user_id, mainItemset, itemset, self._coupons[i])
+                    intersection = self._itemset.intersection(itemset_instance, self._coupons[i].accItemset)
+                    if intersection != None and intersection.price > self._coupons[i].accThreshold:
+                        VP = self._addtionallyAdoptVP(user_id, mainItemset, itemset_instance, self._coupons[i])
                         if(VP > max_VP):
                             max_VP = VP
-                            maxDict = {"items": itemset, "VP": max_VP, "coupon": self._coupons[i]}
+                            maxDict = {"items": itemset_instance, "VP": max_VP, "coupon": self._coupons[i]}
 
         return maxDict
     
@@ -173,8 +174,8 @@ class UsersProxy():
     
     def adopt(self, user_id):
         '''
-            使用者購買行為，若挑選的主商品皆為已購買過的商品則不會產生任何的購買行為，並且回傳None。
-            將實際交易的商品存到使用者的 adopted set，回傳考量的商品組合。
+            使用者購買行為, 若挑選的主商品皆為已購買過的商品則不會產生任何的購買行為, 並且回傳None。
+            將實際交易的商品存到使用者的 adopted set, 回傳考量的商品組合。
 
             Return:
                 dict: 
@@ -185,11 +186,12 @@ class UsersProxy():
         '''
         mainItemset = self._adoptMainItemset(user_id)
 
-    # 主商品皆為已購買過的商品
+        # 主商品皆為已購買過的商品
+        # main itemset should be check whether is empty
+
         if mainItemset == None:
             return None
 
-    # main itemset should be check whether is empty
         addtional = self._adoptAddtional(user_id, mainItemset["items"])
         trade = dict()
 
