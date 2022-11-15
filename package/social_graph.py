@@ -1,8 +1,6 @@
-from math import degrees
 import networkx as nx
 import queue
 import random
-from itertools import combinations
 
 class SN_Graph(nx.DiGraph):
     '''
@@ -19,16 +17,17 @@ class SN_Graph(nx.DiGraph):
     def __init__(self) -> None:
         super().__init__(self)
 
-  
-    def construct(self, dataset) -> None:
+
+    def construct(self, edges_file, node_file) -> None:
         '''
           從edge的資料檔案建立點, 邊, 權重
 
           Args:
-            dataset(string): 檔案路徑
+            edges_file(string): 檔案路徑
+            nodes_file(string): 包含topic的節點資料路徑
         '''
     
-        with open(dataset, "r") as f:
+        with open(edges_file, "r") as f:
             for line in f:
                 nodes = line.split(",")
                 src = nodes[0]
@@ -40,6 +39,10 @@ class SN_Graph(nx.DiGraph):
                 
         for src, det in list(self.edges):
             self.edges[src, det]["weight"] = 1/self.in_degree(det)
+
+        with open(node_file, "r") as f:
+            for line in f:
+                print(line)
 
     def _bfs_sampling(self, k_nodes):
 

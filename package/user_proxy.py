@@ -2,6 +2,7 @@ from social_graph import SN_Graph
 from itemset import ItemsetFlyweight, Itemset
 import sys
 from itertools import combinations
+import logging
 
 class UsersProxy():
     '''
@@ -190,6 +191,7 @@ class UsersProxy():
         # main itemset should be check whether is empty
 
         if mainItemset == None:
+            logging.debug("user {0}'s main itemset is None.".format(user_id))
             return None
 
         addtional = self._adoptAddtional(user_id, mainItemset["items"])
@@ -199,11 +201,16 @@ class UsersProxy():
             trade["decision_items"] = mainItemset["items"]
             trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"])
             trade["amount"] = trade["tradeOff_items"].price
+            logging.info("user {0} choose main itemset.".format(user_id))
+            logging.debug("itemset: {0}".format(mainItemset["items"]))
+            
         else:
             trade["decision_items"] = addtional["items"]
             trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"]) 
             trade["amount"] = trade["tradeOff_items"].price - self._discount(trade["tradeOff_items"], addtional["items"]["coupon"])
-            
+            logging.info("user {0} choose addtional itemset with coupon.".format(user_id))
+            logging.debug("itemset: {0}\n coupon: {1}".format(mainItemset["items"], addtional["coupon"]))
+
         self._graph.nodes[user_id]["adopted_set"] = self._itemset.union(
                                 self._graph.nodes[user_id]["adopted_set"],
                                 trade["tradeOff_items"])

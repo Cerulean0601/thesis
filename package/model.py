@@ -3,13 +3,11 @@ from user_proxy import UsersProxy
 from itemset import ItemsetFlyweight, Itemset
 from queue import Queue
 from random import uniform, random
+import logging
 
 class DiffusionModel():
     def __init__(self, graph, items, coupons) -> None:
         self._graph = graph
-        for node_id in self._graph:
-            self._graph.nodes[node_id]["topic"] = self._randomTopic(len(items["topic"]['0']))
-
         self._itemset = ItemsetFlyweight(items["price"], items["topic"])
 
         for coupon in coupons:
@@ -18,10 +16,11 @@ class DiffusionModel():
 
         self._coupons = coupons
         self._user_proxy = UsersProxy(self._graph, self._itemset, self._coupons)
-
-    def _randomTopic(self, T:int):
-        topic = [random() for i in range(T)]
-        return [topic[i]/sum(topic) for i in range(T)]
+    
+    
+    # def _randomTopic(self, T:int):
+    #     topic = [random() for i in range(T)]
+    #     return [topic[i]/sum(topic) for i in range(T)]
 
     def _selectSeeds(self, k:int) -> list:
         '''
@@ -75,6 +74,9 @@ class DiffusionModel():
         # list of the seeds is sorted by out-degree.
         seeds = self._selectSeeds(k) 
         self._allocate(seeds, items)
+        for seed, degree in seeds:
+            logging.debug("Allocate {0} to {1}".format(self._graph.nodes[seed]["desired_set"], seed))
+        logging.info("Allocation is complete.")
 
         propagatedQueue = Queue()
         for seed, out_degree in seeds:
@@ -84,7 +86,7 @@ class DiffusionModel():
             node_id = propagatedQueue.get()
             
             trade = self._user_proxy.adopt(node_id)
-            print("id: {0}, traded items:{1}".format(node_id, trade["decision_items"]) )
+            logging.info("user: {0}, traded items:{1}".format(node_id, trade["decision_items"]) )
 
             # 如果沒購買任何東西則跳過此使用者不做後續的流程
             if trade == None:
@@ -93,30 +95,7 @@ class DiffusionModel():
             is_activated = False
             for out_neighbor in self._graph.neighbors(node_id):
                 is_activated  = self._propagate(node_id, out_neighbor, trade["decision_items"])
-                print("{0} activate {1}: {2}".format(node_id, out_neighbor, is_activated))
+                logging.info("{0} tries to activate {1}: {2}".format(node_id, out_neighbor, is_activated))
                 if is_activated:
-                    print("{0}'s desired_set: {1}".format(out_neighbor, self._graph.nodes[out_neighbor]["desired_set"]))
+                    logging.debug("{0}'s desired_set: {1}".format(out_neighbor, self._graph.nodes[out_neighbor]["desired_set"]))
                     propagatedQueue.put(out_neighbor)
-
-if __name__ == "__main__":
-    
-    from social_graph import SN_Graph
-    import networkx as nx
-    from coupon import Coupon
-
-    graph = SN_Graph()
-    nx.add_path(graph, [0,1,2,3,1], weight=1)
-    nx.add_path(graph, [3,2], weight = 0.7)
-    
-    topic = {
-            '0': [0.82, 0.19],
-            '1': [0.63, 0.37],
-            '2': [0.5, 0.5]
-        }
-    price = [60,260,70]
-    
-    model = DiffusionModel(graph, 
-                  {"price": price, "topic": topic},
-                  [Coupon(180, [0], 20, [0,1]),])
-    
-    model.diffusion()
