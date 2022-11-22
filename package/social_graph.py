@@ -27,7 +27,7 @@ class SN_Graph(nx.DiGraph):
             nodes_file(string): 包含topic的節點資料路徑
         '''
     
-        with open(edges_file, "r") as f:
+        with open(edges_file, "r", encoding="utf8") as f:
             for line in f:
                 nodes = line.split(",")
                 src = nodes[0]
@@ -40,8 +40,8 @@ class SN_Graph(nx.DiGraph):
         for src, det in list(self.edges):
             self.edges[src, det]["weight"] = 1/self.in_degree(det)
 
-        with open(node_file, "r") as f:
-            for line in f:
+        with open(node_file, "r", encoding="utf8") as f:
+            for id, *line in f:
                 print(line)
 
     def _bfs_sampling(self, k_nodes):

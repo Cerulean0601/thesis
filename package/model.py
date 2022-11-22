@@ -4,11 +4,17 @@ from itemset import ItemsetFlyweight, Itemset
 from queue import Queue
 from random import uniform, random
 import logging
+import re
+from networkx import NetworkXError, write_gml
 
 class DiffusionModel():
     def __init__(self, graph, items, coupons) -> None:
         self._graph = graph
+
+
         self._itemset = ItemsetFlyweight(items["price"], items["topic"])
+        for node in self._graph:
+            self._graph.nodes[node]['topic'] = self._randomTopic(len(items["topic"]['0']))
 
         for coupon in coupons:
             coupon.accItemset = self._itemset[coupon.accItemset]
@@ -18,9 +24,9 @@ class DiffusionModel():
         self._user_proxy = UsersProxy(self._graph, self._itemset, self._coupons)
     
     
-    # def _randomTopic(self, T:int):
-    #     topic = [random() for i in range(T)]
-    #     return [topic[i]/sum(topic) for i in range(T)]
+    def _randomTopic(self, T:int):
+        topic = [random() for i in range(T)]
+        return [topic[i]/sum(topic) for i in range(T)]
 
     def _selectSeeds(self, k:int) -> list:
         '''
@@ -99,3 +105,15 @@ class DiffusionModel():
                 if is_activated:
                     logging.debug("{0}'s desired_set: {1}".format(out_neighbor, self._graph.nodes[out_neighbor]["desired_set"]))
                     propagatedQueue.put(out_neighbor)
+    
+    def save(self, path):
+        def  stringizer(value):
+            if isinstance(value, Itemset):
+                return str(value)
+            elif value == None:
+                return ""
+            
+            return value
+        
+        write_gml(self._graph, path, stringizer)
+        

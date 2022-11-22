@@ -46,35 +46,34 @@ class UsersProxy():
 
             Return:
                 float: return the VP ratio with the pair in "main itemset" stage.
-                If the result adopted itemset of the user minus the itemset is empty, return None
+                If the result adopted itemset of the user minus the itemset is empty, return 0
         '''
         adopted = self._graph.nodes[user_id]["adopted_set"]
         if not isinstance(itemset, Itemset):
             itemset = self._itemset[itemset]
-        if type(itemset) == str:
-            print(itemset)
-        result = self._itemset.difference(itemset ,adopted)
 
-        return self._similarity(user_id,itemset)/result.price if result != None else None
+        result = self._itemset.difference(itemset ,adopted)
+        return self._similarity(user_id,itemset)/result.price if not result.empty() else 0
   
     def _adoptMainItemset(self, user_id):
         '''
-            從使用者的 desired set 找出CP值最高的商品組合當作主商品並且回傳，若 desired set 全等於 adopted set，則回傳 None
+            從使用者的 desired set 找出CP值最高的商品組合當作主商品並且回傳
 
             Args:
                 user_id (str): user id
             Returns:
                 (Itemset, float): If user's desired_set is empty, or the main itemset and adopted set is equivalance, 
-                None will be returned. Otherwise, it will return the main itemset of this user with the value.
+                empty itemset will be returned. Otherwise, otherwise it will return the main itemset of this user with the value.
         '''
 
         if user_id not in self._graph:
             raise ValueError("The user id is not found.")
-
-        
+            
 
         desired_set = self._graph.nodes[user_id]["desired_set"]
-        adopted_set = self._graph.nodes[user_id]["adopted_set"]
+
+        # items in the set had been adopted
+        adopted_set = self._graph.nodes[user_id]["adopted_set"] 
 
         # If desired set is empty, or adopted set and desired set is equivalance, return None
         if desired_set == None or adopted_set == desired_set:
@@ -88,14 +87,14 @@ class UsersProxy():
         maxVP_mainItemset = None
 
         for length in range(len(desired_set.numbering)):
-            for c in combinations(desired_set.numbering, length+1):
-                c = set(c)
-                if self._itemset.issubset(adopted_set, c) and not adopted_set == c:
+            for X in combinations(desired_set.numbering, length+1):
+                X = set(X)
+                if self._itemset.issubset(adopted_set, X) and not adopted_set == X:
 
-                    VP = self._VP_ratio(user_id, c)
+                    VP = self._VP_ratio(user_id, X)
                     if VP > max_VP:
                         max_VP = VP
-                        maxVP_mainItemset = c
+                        maxVP_mainItemset = X
 
         if self._itemset[maxVP_mainItemset] == adopted_set:
             return None

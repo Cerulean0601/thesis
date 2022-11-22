@@ -12,8 +12,8 @@ class Itemset():
         Structure of Itemset
     '''
 
-    def __init__(self, numbering):
-        self.numbering = set(numbering)
+    def __init__(self, numbering=None):
+        self.numbering = set(numbering)  if numbering else set()
         self.price = int
         self.topic = list
 
@@ -21,7 +21,7 @@ class Itemset():
     
         '''
           Args:
-            other (Itmeset,set,None): None is as empty itemset
+            other (Itmeset,set)
         '''
         num_set = set()
     
@@ -41,6 +41,9 @@ class Itemset():
         sortedNum = sorted(self.numbering)
         return " ".join(str(num) for num in sortedNum)
     
+    def empty(self):
+        return len(self.numbering) == 0
+
 class ItemProvider(BaseProvider):
     def __init__(self, k):
         self._k = k
@@ -94,7 +97,7 @@ class ItemsetFlyweight():
         if key in self._map:
             itemset = self._map[key]
 
-        elif sortedNum != None and len(sortedNum) != 0:
+        else:
 
             itemset = Itemset(sortedNum)
             itemset.price = sum([self.PRICE[i] for i in sortedNum])
@@ -124,7 +127,8 @@ class ItemsetFlyweight():
             denominator = sum(topic)
             return [t/denominator for t in topic]
 
-    def _itemset2set(self, a):
+    @staticmethod
+    def _itemset2set(a):
 
         a_set = set()
         if isinstance(a, Itemset):
@@ -138,13 +142,13 @@ class ItemsetFlyweight():
     def union(self, a, b):
         '''
             Union two itemset
-            a(set, Itemset, None)
-            b(set, Itemset, None)
+            a(set, Itemset)
+            b(set, Itemset)
         '''
     
         union_set = set()
-        a_set = self._itemset2set(a)
-        b_set = self._itemset2set(b)
+        a_set = ItemsetFlyweight._itemset2set(a)
+        b_set = ItemsetFlyweight._itemset2set(b)
 
         union_set = a_set.union(b_set)
         return self.__getitem__(union_set)
@@ -156,16 +160,16 @@ class ItemsetFlyweight():
             b(set, Itemset, None)
         '''
 
-        a_set = self._itemset2set(a)
-        b_set = self._itemset2set(b)
+        a_set = ItemsetFlyweight._itemset2set(a)
+        b_set = ItemsetFlyweight._itemset2set(b)
         intersection = b_set.intersection(a_set)
 
         return self.__getitem__(intersection) if len(intersection) != 0 else None
 
     def difference(self, a, b):
 
-        a_set = self._itemset2set(a)
-        b_set = self._itemset2set(b)
+        a_set = ItemsetFlyweight._itemset2set(a)
+        b_set = ItemsetFlyweight._itemset2set(b)
     
         minus = a_set.difference(b_set)
         return self.__getitem__(minus) if len(minus) != 0 else None
@@ -175,14 +179,14 @@ class ItemsetFlyweight():
             Return:
                 If this itemset is subeset of "other", return true otheriwse false.
         '''
-        a_set = self._itemset2set(a)
-        b_set = self._itemset2set(b)
+        a_set = ItemsetFlyweight._itemset2set(a)
+        b_set = ItemsetFlyweight._itemset2set(b)
 
         return a_set.issubset(b_set)
 
     def issuperset(self, a, b) -> bool:
 
-        a_set = self._itemset2set(a)
-        b_set = self._itemset2set(b)
+        a_set = ItemsetFlyweight._itemset2set(a)
+        b_set = ItemsetFlyweight._itemset2set(b)
 
         return a_set.issuperset(b_set)
