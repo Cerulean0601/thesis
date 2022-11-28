@@ -200,15 +200,13 @@ class UsersProxy():
             trade["decision_items"] = mainItemset["items"]
             trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"])
             trade["amount"] = trade["tradeOff_items"].price
-            logging.info("user {0} choose main itemset.".format(user_id))
-            logging.debug("itemset: {0}".format(mainItemset["items"]))
+            logging.info("user {0} choose main itemset {1}.".format(user_id, mainItemset["items"]))
             
         else:
             trade["decision_items"] = addtional["items"]
             trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"]) 
             trade["amount"] = trade["tradeOff_items"].price - self._discount(trade["tradeOff_items"], addtional["items"]["coupon"])
-            logging.info("user {0} choose addtional itemset with coupon.".format(user_id))
-            logging.debug("itemset: {0}\n coupon: {1}".format(mainItemset["items"], addtional["coupon"]))
+            logging.info("user {0} choose addtional itemset {} with coupon {}.".format(user_id, mainItemset["items"], addtional["coupon"]))
 
         self._graph.nodes[user_id]["adopted_set"] = self._itemset.union(
                                 self._graph.nodes[user_id]["adopted_set"],

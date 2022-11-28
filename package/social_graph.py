@@ -7,12 +7,12 @@ class SN_Graph(nx.DiGraph):
         Note: 邊的權重若預設為1/(v_indegree)，則(v,u)和(u,v)的權重並不相同，因此用有向圖替代無向圖
 
         Attribute of Node:
-            desired_set
-            adopted_set
+            desired_set(string)
+            adopted_set(string)
         
         Attribute of Edge:
-            is_tested
-            weight: 1/in_degree(u)
+            is_tested(bool):
+            weight(float): 1/in_degree(u)
     '''
     def __init__(self) -> None:
         super().__init__(self)

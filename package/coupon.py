@@ -21,8 +21,8 @@ class Coupon():
         self.disItemset = disItemset
 
     def __str__(self):
-        return "(" + str(self.accThreshold) + \
-        ", {" + str(self.accItemset) + "}" +\
-        ", " + str(self.discount) + \
-        ", {" + str(self.disItemset) + "})"
+        return str(self.accThreshold) + \
+        "," + str(self.accItemset) + \
+        "," + str(self.discount) + \
+        "," + str(self.disItemset)
 
