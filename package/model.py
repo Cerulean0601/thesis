@@ -113,7 +113,7 @@ class DiffusionModel():
     def save(self, dir_path):
 
         filename = dir_path + self.name
-
+        
         def save_graph(G, filename):
             def  stringizer(value):
                 if isinstance(value, Itemset):
