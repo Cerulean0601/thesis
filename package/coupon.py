@@ -10,10 +10,10 @@ class Coupon():
             itemHandler (ItemsetFlyweight)
             param (list):
                 accThreshold (int): The threshold of discounting.
-                accItemset (Itemset): Accumlative items that can be redeemed for discounts, if 
+                accItemset (list|string): Accumlative items that can be redeemed for discounts, if 
                     the total price is equal or greater than the threshold.
                 discount (int): discount amount
-                disItemset (Itemset): The items that can be discount.
+                disItemset (list|string): The items that can be discount.
         '''
         self.accThreshold = accThreshold
         self.accItemset = accItemset

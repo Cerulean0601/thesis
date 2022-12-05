@@ -1,8 +1,9 @@
-from social_graph import SN_Graph
-from itemset import ItemsetFlyweight, Itemset
 import sys
 from itertools import combinations
 import logging
+
+from social_graph import SN_Graph
+from itemset import ItemsetFlyweight, Itemset
 
 class UsersProxy():
     '''
