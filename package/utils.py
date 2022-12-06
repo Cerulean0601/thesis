@@ -7,29 +7,39 @@ def preprocessingText(text):
     text = re.sub('[!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]', ' ', text).lower()
     return text.replace('\n', ' ')
 
-def extractTokens(name, path_dataset):
-    def extractAmazonTokens(row):
+def extractTokensWithID(name, path_dataset):
+    '''
+        針對預處理後的不同資料集來源, 實作不同提取token的方法, 並且回傳物品或使用者id和對應的token
+        Args:
+            name (str): name of the dataset
+            path_dataset (str): path of the dataset
+        Returns:
+            list of ids, list of tokens
+    '''
+    def extractAmazon(row):
         '''
             Order of the attrs of the item are asin, also_view, also_buy, category and price.
         '''
-        return row[3].split(" ") # Third attr is category
+        return row[0], row[3].split(" ") # Third attr is category
 
-    def extractDBLPTokens(row):
-        return row[1:]
+    def extractDBLP(row):
+        return row[0], row[1:]
     
     extractFunc = None
     if name.lower() == "amazon":
-        extractFunc = extractAmazonTokens
+        extractFunc = extractAmazon
     elif name.lower() == "dblp":
-        extractFunc = extractDBLPTokens
+        extractFunc = extractDBLP
 
     if not extractFunc:
         raise ValueError("Shoud choose one of the dataset for extracting tokens")
     
     list_tokens = []
-    with open(path_dataset, "r") as f:
+    ids = []
+    with open(path_dataset, "r", encoding="utf8") as f:
         for line in f:
             values = line.split(",")
-            tokens = extractFunc(values)
+            id,tokens = extractFunc(values)
             list_tokens.append(tokens)
-    return list_tokens
+            ids.append(id)
+    return ids, list_tokens

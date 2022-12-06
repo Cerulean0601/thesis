@@ -1,24 +1,27 @@
 from os.path import exists
+import os
 import nltk
 from gensim.models import LdaMulticore
 from gensim.corpora import dictionary
+import logging
+
+from utils import extractTokensWithID
 
 class Topic():
     def __init__(self, nodes_file, items_file, number_topics):
 
-        def _prepareWords(file):
+        self.number_nodes = 0
+        self.number_items = 0
+        self._mapping = {} # mapping user id or item asin to bow
+        def _prepare(file):
+            
+            path = file.split(os.sep)
+            path = [directory.lower() for directory in path]
+            datasetName = path[-2]
 
-            ids = []
-            docs = []
-            with open(file, encoding="utf8") as f:
-                for line in f:
-                    id, *tokens = line.split(",")
-                    ids.append(id)
-                    docs.append(tokens)
-
-            return ids, docs
+            return extractTokensWithID(datasetName, file)
         
-        def _constructCorpora(nodes: list[list[str]], items: list[list[str]]):
+        def _constructCorpus(nodes: list[list[str]], items: list[list[str]]):
             '''
                 從 tokens 建立語料庫
 
@@ -29,25 +32,35 @@ class Topic():
             separtedNum = len(nodes)
             nodes.extend(items)
 
-            id2word = dictionary.Dictionary(nodes)
-            corpora = [id2word.doc2bow(text) for text in nodes]
-
-            return id2word, corpora
+            self._id2word = dictionary.Dictionary(nodes)
+            self._corpus= [self._id2word.doc2bow(text) for text in nodes]
 
         self._stopwords_path = "./nltk_data/corpora/stopwords/"
         if not exists(self._stopwords_path):
             nltk.download("stopwords", download_dir=self._stopwords_path)
-        print("Download stopwords done.")
+        logging.info("Download stopwords done.")
 
-        node_ids, node_docs = _prepareWords(nodes_file)
-        item_ids, item_docs = _prepareWords(items_file)
-        print("Prepare to construct corpora")
-        id2word, corpora = _constructCorpora(node_docs, item_docs)
-        print("Construct LDA Model.")
-        self._model = LdaMulticore(corpus=corpora, num_topics=number_topics, id2word=id2word)
+        node_ids, node_docs = _prepare(nodes_file)
+        item_ids, item_docs = _prepare(items_file)
+        self.number_nodes = len(node_docs)
+        self.number_items = len(item_docs)
 
-if __name__ == "__main__":
-    topic = Topic(nodes_file="./data/dblp/topic_nodes",
-                  items_file="./data/dblp/topic_nodes",
-                  number_topics=5)
-    topic._model.print_topics()
+        logging.info("Prepare to construct corpora")
+        _constructCorpus(node_docs, item_docs)
+        logging.info("Construct LDA Model.")
+        self._model = LdaMulticore(corpus=self._corpus, num_topics=number_topics, id2word=self._id2word)
+
+        ids = node_ids
+        ids.extend(item_ids)
+
+        for i in range(len(ids)):
+            self._mapping[ids[i]] = self._corpus[i]
+
+    def __getitem__(self, id):
+            return [pair[1] for pair in self._model[self._mapping[id]]]
+
+    def save(self, path = "D:\\論文實驗\\data\\topic\\"):
+        self._model.save(path + "topic")
+
+    def load(self, path = "D:\\論文實驗\\data\\topic\\"):
+        self._model.load(path + "topic")
