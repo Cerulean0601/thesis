@@ -7,12 +7,13 @@ import logging
 
 from utils import extractTokensWithID
 
-class Topic():
+class TopicModel():
     def __init__(self, nodes_file, items_file, number_topics):
+        
+        self._mappingNode = {} # mapping user id or item asin to bow
+        self._mappingItem = {}
+        self.number_topics = number_topics
 
-        self.number_nodes = 0
-        self.number_items = 0
-        self._mapping = {} # mapping user id or item asin to bow
         def _prepare(file):
             
             path = file.split(os.sep)
@@ -29,38 +30,45 @@ class Topic():
                     nodes (list[list[str]]]): a list of tokens of users
                     items (list[list[str]]): a list of tokens of items
             '''
-            separtedNum = len(nodes)
             nodes.extend(items)
 
-            self._id2word = dictionary.Dictionary(nodes)
-            self._corpus= [self._id2word.doc2bow(text) for text in nodes]
+            _id2word = dictionary.Dictionary(nodes)
+            _corpus= [_id2word.doc2bow(text) for text in nodes]
+
+            return _id2word, _corpus
 
         self._stopwords_path = "./nltk_data/corpora/stopwords/"
         if not exists(self._stopwords_path):
             nltk.download("stopwords", download_dir=self._stopwords_path)
         logging.info("Download stopwords done.")
 
-        node_ids, node_docs = _prepare(nodes_file)
-        item_ids, item_docs = _prepare(items_file)
-        self.number_nodes = len(node_docs)
-        self.number_items = len(item_docs)
+        self._nodes_id, node_docs = _prepare(nodes_file)
+        self._items_id, item_docs = _prepare(items_file)
 
         logging.info("Prepare to construct corpora")
-        _constructCorpus(node_docs, item_docs)
+        self._id2word, self._corpus = _constructCorpus(node_docs, item_docs)
         logging.info("Construct LDA Model.")
         self._model = LdaMulticore(corpus=self._corpus, num_topics=number_topics, id2word=self._id2word)
 
-        ids = node_ids
-        ids.extend(item_ids)
-
-        for i in range(len(ids)):
-            self._mapping[ids[i]] = self._corpus[i]
+        nodes_size = len(self._nodes_id)
+        for i in range(nodes_size):
+            self._mappingNode[self._nodes_id[i]] = self._corpus[i]
+        for j in range(len(self._items_id)):
+            self._mappingItem[self._items_id[j]] = self._corpus[nodes_size + j]
 
     def __getitem__(self, id):
-            return [pair[1] for pair in self._model[self._mapping[id]]]
-
+        _mapping = self._mappingNode if id in self._mappingNode else self._mappingItem
+        return [pair[1] for pair in self._model[_mapping[id]]]
+    
+    def getItemsTopic(self) -> dict:
+        return self._mappingItem
+    
+    def getNodesTopic(self) -> dict:
+        return self._mappingNode
+        
     def save(self, path = "D:\\論文實驗\\data\\topic\\"):
-        self._model.save(path + "topic")
+        self._model.save(path + "topic" + str(self.number_topics))
 
-    def load(self, path = "D:\\論文實驗\\data\\topic\\"):
-        self._model.load(path + "topic")
+    @classmethod
+    def load(cls, number_topics, path = "D:\\論文實驗\\data\\topic\\"):
+        return LdaMulticore.load(path + "topic" + str(number_topics))

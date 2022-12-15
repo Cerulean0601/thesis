@@ -9,20 +9,20 @@ class TestItemset(unittest.TestCase):
             '1': [0.63, 0.37],
             '2': [0.5, 0.5]
         }
-        price = [60,260,70]
-        self._itemset = ItemsetFlyweight(price = price, topic = topic)
+        prices = {'0':60, '1':260, '2':70}
+        self._itemset = ItemsetFlyweight(prices, topic)
   
     def test_union(self):
         # NOTICE! the aggregation is not determinated
 
-        self.assertEqual(self._itemset.union({0},{1}).price, 320)
-        self.assertEqual(self._itemset.union({0,1},{1,2}).price, 390)
+        self.assertEqual(self._itemset.union(["0"],["1"]).price, 320)
+        self.assertEqual(self._itemset.union(["0","1"],["1","2"]).price, 390)
 
     def test_intersection(self):
-        self.assertIsNone(self._itemset.intersection({0},{1}))
-        self.assertEqual(self._itemset.intersection({0,1},{1,2}).price, 260)
+        self.assertIsNone(self._itemset.intersection(["0"],["1"]))
+        self.assertEqual(self._itemset.intersection(["0","1"],["1","2"]).price, 260)
 
     def test_difference(self):
-        self.assertIsNone(self._itemset.difference({1},{1,2,3}))
-        self.assertIsNone(self._itemset.difference({1,2},{1,2,3}))
-        self.assertEqual(self._itemset.difference({0,1},{1,2}).price, 60)
+        self.assertIsNone(self._itemset.difference(["1"],["1","2","3"]))
+        self.assertIsNone(self._itemset.difference(["1","2"],["1","2","3"]))
+        self.assertEqual(self._itemset.difference(["0","1"],["1","2"]).price, 60)

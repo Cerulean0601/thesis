@@ -10,9 +10,10 @@ from os.path import exists
 from user_proxy import UsersProxy
 from itemset import ItemsetFlyweight, Itemset
 from coupon import Coupon
+from social_graph import SN_Graph
 
 class DiffusionModel():
-    def __init__(self, name, graph, items, coupons) -> None:
+    def __init__(self, name, graph:SN_Graph, items, coupons) -> None:
         self._graph = graph
         self.name = name
 
@@ -76,7 +77,7 @@ class DiffusionModel():
 
     def diffusion(self):
 
-        k = min(len(self._itemset.PRICE), self._graph.number_of_nodes())
+        k = min(self._itemset.number, self._graph.number_of_nodes())
 
         # List of single items.
         items = [self._itemset[i] for i in range(k)]
@@ -130,7 +131,7 @@ class DiffusionModel():
                 The first column is the price of items, and the others are topics.
             '''
             with open(filename + ".items", 'w', encoding="utf8", newline="") as f:
-                for i in range(len(itemset.PRICE)):
+                for i in range(itemset.numbering):
                     f.write(str(itemset.PRICE[i]) + ",")
                     for topic in itemset.TOPIC[str(i)]:
                         f.write(str(topic) + ",")

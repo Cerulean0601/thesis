@@ -7,7 +7,6 @@ class Coupon():
         It is a sturcture for coupons.
 
         Arg:
-            itemHandler (ItemsetFlyweight)
             param (list):
                 accThreshold (int): The threshold of discounting.
                 accItemset (list|string): Accumlative items that can be redeemed for discounts, if 

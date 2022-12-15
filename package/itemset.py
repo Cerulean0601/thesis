@@ -6,16 +6,18 @@ from faker.providers import BaseProvider
 from random import random
 from itertools import combinations
 
+from topic import TopicModel
+
 class Itemset():
   
     '''
         Structure of Itemset
     '''
 
-    def __init__(self, numbering=None):
+    def __init__(self, numbering, price, topic):
         self.numbering = set(numbering)  if numbering else set()
-        self.price = int
-        self.topic = list
+        self.price = price
+        self.topic = topic
 
     def __eq__(self, other):
     
@@ -68,27 +70,30 @@ class ItemsetFlyweight():
     '''
         For creating itemset instance with flyweight pattern 
     '''
-
-    def __init__(self, price, topic) -> None:
+    
+    def __init__(self, prices:dict, topic:TopicModel|dict) -> None:
         '''
-            if dataset is None, then randomly generate data
+            If item_file is None, prices and topics should be set.
+            Args:
+                price (dict): mapping from id to price
+                topic (TopicModel)
         '''
-        self.PRICE = price
-        self.TOPIC = topic
-        self._map = {}
-
+        self.PRICE = prices # dict
+        self.TOPIC = topic if type(topic) == dict else topic.getItemsTopic()
+        self.number = len(list(prices.values()))
+        self._map = dict()
+        
+        for key in self.TOPIC.keys():
+            # initialize
+            ids = key.split(" ")
+            self.__getitem__(ids)
+                
     def __getitem__(self, ids) -> Itemset:
         '''
             Args:
-                ids(str, set, array-like or Itemset): all of ids in the itemset 
+                ids(str, set, array-like): all of ids in the itemset 
         '''
-        sortedNum = []
-        if type(ids) == str:
-            sortedNum = [int(i) for i in ids.split(" ")]
-        elif type(ids) == int:
-            sortedNum = [ids]
-        else:
-            sortedNum = list(ids)
+        sortedNum = [ids] if type(ids) == str else list(ids)
 
         sortedNum = sorted(sortedNum)
         key = " ".join(str(num) for num in sortedNum)
@@ -98,12 +103,10 @@ class ItemsetFlyweight():
             itemset = self._map[key]
 
         else:
-
-            itemset = Itemset(sortedNum)
-            itemset.price = sum([self.PRICE[i] for i in sortedNum])
-
-          # the argument is useless because it's random
-            itemset.topic = self._aggregateTopic(0,1) if key not in self.TOPIC else self.TOPIC[key]
+            itemset = Itemset(sortedNum,
+                        sum([self.PRICE[i] for i in sortedNum]),
+                        self._aggregateTopic(0,1) if key not in self.TOPIC else self.TOPIC[key] # the argument is useless because it's random
+                        )
             self._map[key] = itemset
 
         return itemset
@@ -128,7 +131,7 @@ class ItemsetFlyweight():
             return [t/denominator for t in topic]
 
     @staticmethod
-    def _itemset2set(a):
+    def _toSet(a):
 
         a_set = set()
         if isinstance(a, Itemset):
@@ -136,7 +139,7 @@ class ItemsetFlyweight():
         elif a == None or len(a) == 0:
             a_set = set()
         else:
-            a_set = a
+            a_set = set(a)
         return a_set
 
     def union(self, a, b):
@@ -147,8 +150,8 @@ class ItemsetFlyweight():
         '''
     
         union_set = set()
-        a_set = ItemsetFlyweight._itemset2set(a)
-        b_set = ItemsetFlyweight._itemset2set(b)
+        a_set = ItemsetFlyweight._toSet(a)
+        b_set = ItemsetFlyweight._toSet(b)
 
         union_set = a_set.union(b_set)
         return self.__getitem__(union_set)
@@ -160,16 +163,16 @@ class ItemsetFlyweight():
             b(set, Itemset, None)
         '''
 
-        a_set = ItemsetFlyweight._itemset2set(a)
-        b_set = ItemsetFlyweight._itemset2set(b)
+        a_set = ItemsetFlyweight._toSet(a)
+        b_set = ItemsetFlyweight._toSet(b)
         intersection = b_set.intersection(a_set)
 
         return self.__getitem__(intersection) if len(intersection) != 0 else None
 
     def difference(self, a, b):
 
-        a_set = ItemsetFlyweight._itemset2set(a)
-        b_set = ItemsetFlyweight._itemset2set(b)
+        a_set = ItemsetFlyweight._toSet(a)
+        b_set = ItemsetFlyweight._toSet(b)
     
         minus = a_set.difference(b_set)
         return self.__getitem__(minus) if len(minus) != 0 else None
@@ -179,14 +182,14 @@ class ItemsetFlyweight():
             Return:
                 If this itemset is subeset of "other", return true otheriwse false.
         '''
-        a_set = ItemsetFlyweight._itemset2set(a)
-        b_set = ItemsetFlyweight._itemset2set(b)
+        a_set = ItemsetFlyweight._toSet(a)
+        b_set = ItemsetFlyweight._toSet(b)
 
         return a_set.issubset(b_set)
 
     def issuperset(self, a, b) -> bool:
 
-        a_set = ItemsetFlyweight._itemset2set(a)
-        b_set = ItemsetFlyweight._itemset2set(b)
+        a_set = ItemsetFlyweight._toSet(a)
+        b_set = ItemsetFlyweight._toSet(b)
 
         return a_set.issuperset(b_set)

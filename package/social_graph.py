@@ -2,6 +2,8 @@ import networkx as nx
 import queue
 import random
 
+from topic import TopicModel
+
 class SN_Graph(nx.DiGraph):
     '''
         Note: 邊的權重若預設為1/(v_indegree)，則(v,u)和(u,v)的權重並不相同，因此用有向圖替代無向圖
@@ -18,24 +20,33 @@ class SN_Graph(nx.DiGraph):
         super().__init__(self)
 
 
-    def construct(self, edges_file, node_file) -> None:
+    def construct(self, edges_file, node_file, topic:TopicModel|dict) -> None:
         '''
           從edge的資料檔案建立點, 邊, 權重
 
           Args:
-            edges_file(string): 檔案路徑
-            nodes_file(string): 包含topic的節點資料路徑
+            edges_file (string): 檔案路徑
+            nodes_file (string): 包含topic的節點資料路徑
+            topic (Topic)
         '''
-    
+        def _initNodeIfExist(id) -> bool:
+            if id not in topic:
+                return False
+
+            self.nodes[id]["desired_set"] = None
+            self.nodes[id]["adopted_set"] = None
+            self.nodes[id]["topic"] = topic[id]
+            return True
+
         with open(edges_file, "r", encoding="utf8") as f:
             for line in f:
                 nodes = line.split(",")
                 src = nodes[0]
-                det = nodes[1] if nodes[1][-1] != "\n" else nodes[1][:-1]
-                self.add_edge(src, det)
-                self.edges[src, det]["is_tested"] = False
-                self.nodes[src]["desired_set"] = None
-                self.nodes[det]["adopted_set"] = None
+                det = nodes[1][:-1]
+
+                if _initNodeIfExist(src) and _initNodeIfExist(det):
+                    self.add_edge(src, det)
+                    self.edges[src, det]["is_tested"] = False
                 
         for src, det in list(self.edges):
             self.edges[src, det]["weight"] = 1/self.in_degree(det)

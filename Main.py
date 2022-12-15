@@ -1,61 +1,55 @@
-import sys
-
-IN_COLAB = 'google.colab' in sys.modules
-DIR_PATH = ""
-
-if IN_COLAB:
-    from google.colab import drive
-    drive.mount("/content/dirve")
-    DIR_PATH = r"/content/dirve/MyDrive/研究所/Data/dblp/"
-    sys.path.append('/content/dirve/MyDrive/Colab Notebooks/package')
-else:
-    DIR_PATH = r"D:\\論文實驗\\data\\dblp\\"
-    sys.path.append('D:\\論文實驗\\package')
-    sys.path.append("D:\\論文實驗\\env\\Lib\\site-packages")
-
-import importlib
-import networkx as nx 
+import os
 import unittest
-from coupon import Coupon
-from social_graph import SN_Graph
-from model import DiffusionModel
-import logging
 
-if __name__ == "__main__":
-    
+# const.
+DATA_ROOT = os.path.join("D:" + os.sep, "論文實驗", "data")
+DBLP_PATH = os.path.join(DATA_ROOT, "dblp")
+AMAZON_PATH = os.path.join(DATA_ROOT, "amazon")
+
+
+def test():
     testRunner = unittest.TextTestRunner()
     suite = unittest.defaultTestLoader.discover("./test/")
     testRunner.run(suite)
-    logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
     
-    # graph = SN_Graph()
-    # graph.construct(DIR_PATH + "edges", DIR_PATH + "topic_nodes.csv")
-    # subgraph = graph.sampling_subgraph(10)
-    # nx.write_gml(subgraph, DIR_PATH + "sample10_graph.gml")
-    
-    
-    graph = SN_Graph()
-    graph.add_edge(0, 1, weight=0.01, is_tested=False)
-    graph.add_edge(0, 2, weight=1, is_tested=False)
-    for node in graph:
-        graph.nodes[node]['desired_set'] = None
-        graph.nodes[node]['adopted_set'] = None
-            
-    
-    topic = {
-            '0': [0.82, 0.19],
-            '1': [0.63, 0.37],
-            '2': [0.5, 0.5]
-        }
-    price = [60,260,70]
-    
-    model = DiffusionModel(
-        "test",
-        graph, 
-        {"price": price, "topic": topic},
-        [Coupon(180, [0], 20, [0,1]),]
-    )
+def getItemsPrice() -> list:
+    prices = dict()
 
+    with open(AMAZON_PATH, "r", encoding="utr8") as dataFile:
+        for line in dataFile:
+            id, *context, price = line.split(",")
+            prices[id] = price
+    return prices
+
+import sys
+import logging
+
+logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+sys.path.append('D:\\論文實驗\\package')
+
+from package.model import DiffusionModel
+from package.topic import TopicModel
+from package.social_graph import SN_Graph
+from package.itemset import ItemsetFlyweight
+from package.coupon import Coupon
+
+# hyper param
+NUM_TOPICS = 5
+if __name__ == '__main__':
     
+    test()
+    
+    # topicModel = TopicModel(DBLP_PATH + "\\topic_nodes.csv", AMAZON_PATH + "\\preprocessed_Sortware.csv", NUM_TOPICS)
+    # topicModel.save()
+    topicModel = TopicModel.load(NUM_TOPICS)
+
+    graph = SN_Graph()
+    graph.construct(DBLP_PATH + "\\edges", DBLP_PATH + "\\nodes", topicModel)
+
+    prices = getItemsPrice()
+    itemset = ItemsetFlyweight(prices, topicModel)
+
+    coupons = [Coupon(20, "0763855553", 10, "0763855553")]
+    model = DiffusionModel("dblp_amazon", graph, itemset, coupons)
     model.diffusion()
-    model.save(DIR_PATH + "checkpoint/")
+    model.save()

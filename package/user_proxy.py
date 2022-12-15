@@ -111,7 +111,7 @@ class UsersProxy():
                 addtionalItemset(Itemset): 使用者在第二階段考量的商品組合
         '''
         mainItemset = self._itemset.difference(mainItemset, self._graph.nodes[user_id]["adopted_set"])
-        accThreshold = self._itemset.intersection(mainItemset, coupon.accItemset).price # 已累積的金額
+        accThreshold = self._itemset.intersection(mainItemset, self._itemset[coupon.accItemset]).price # 已累積的金額
         priceThreshold = coupon.accThreshold
         ratio = min(accThreshold/priceThreshold, 1) # 滿額佔比 \phi
 
