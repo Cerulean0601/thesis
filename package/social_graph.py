@@ -33,9 +33,7 @@ class SN_Graph(nx.DiGraph):
             if id not in topic:
                 return False
 
-            self.nodes[id]["desired_set"] = None
-            self.nodes[id]["adopted_set"] = None
-            self.nodes[id]["topic"] = topic[id]
+            self.add_node(id, desired_set=None, adopted_set=None, topic=topic[id])
             return True
 
         with open(edges_file, "r", encoding="utf8") as f:
@@ -50,10 +48,6 @@ class SN_Graph(nx.DiGraph):
                 
         for src, det in list(self.edges):
             self.edges[src, det]["weight"] = 1/self.in_degree(det)
-
-        with open(node_file, "r", encoding="utf8") as f:
-            for id, *line in f:
-                print(line)
 
     def _bfs_sampling(self, k_nodes):
 

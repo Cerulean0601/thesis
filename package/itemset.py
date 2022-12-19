@@ -1,10 +1,12 @@
 from networkx.classes.function import number_of_nodes
 import numpy as np
+import pandas as pd
 import itertools
 import json
 from faker.providers import BaseProvider
 from random import random
 from itertools import combinations
+import math
 
 from topic import TopicModel
 
@@ -125,7 +127,8 @@ class ItemsetFlyweight():
         '''
         test = True
         if test:
-            Z = len(self.TOPIC['0'])
+            first_index = list(self.TOPIC.keys())[0]
+            Z = len(self.TOPIC[first_index])
             topic = [random() for i in range(Z)]
             denominator = sum(topic)
             return [t/denominator for t in topic]
@@ -193,3 +196,59 @@ class ItemsetFlyweight():
         b_set = ItemsetFlyweight._toSet(b)
 
         return a_set.issuperset(b_set)
+
+class ItemRelation():
+    def __init__(self, relation = pd.DataFrame()):
+        self._relation = relation
+    
+    def __str__(self) -> str:
+        sorted_index = self._relation.sort_index(ascending=True)
+        sorted_index = sorted_index.reindex(sorted(sorted_index.columns), axis=1)
+
+        return str(sorted_index)
+
+    def construct(self, dataset):
+        '''
+            計算產品替代互補關係程度矩陣。對於任意倆倆商品x,y如下計算
+            1. 買了x也買了y, 則R_x,y + 1; 看了x卻買了y, 則R_x,y - 1
+            2. 做 max-min 正規化
+            3. 對於每一個元素t做 1 + sigmoid(t)
+        '''
+
+        def counting(_relation, src_asin, collection, buyOrView):
+            op = 1 if buyOrView == "buy" else -1
+
+            for dest_asin in collection:
+                if dest_asin not in _relation[src_asin]:
+                    _relation[src_asin][dest_asin] = op
+                else:
+                    _relation[src_asin][dest_asin] += op 
+
+        def tranform(frame):
+            return 1 + (1/ (1+np.exp(frame)) )
+        
+        def min_max(frame):
+            maxValue = frame.max().max()
+            minValue = frame.min().min()
+
+            return (frame - maxValue) / (maxValue - minValue)
+
+        self._relation = dict()
+        with open(dataset, "r", encoding="utf-8") as f:
+            for line in f:
+                asin, also_view, also_buy, *other = line.split(",")
+                if asin not in self._relation:
+                    self._relation[asin] = dict()
+
+                also_view_set = also_view.split(" ")
+                also_buy_set = also_buy.split(" ")
+                counting(self._relation, asin, also_buy_set, "buy")
+                counting(self._relation, asin, also_view_set, "view")
+        
+        self._relation = pd.DataFrame.from_dict(self._relation)
+        # normalize
+        self._relation = min_max(self._relation.fillna(0))
+        print(self._relation)
+        self._relation = tranform(self._relation)
+
+        

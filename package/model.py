@@ -13,13 +13,11 @@ from coupon import Coupon
 from social_graph import SN_Graph
 
 class DiffusionModel():
-    def __init__(self, name, graph:SN_Graph, items, coupons) -> None:
+    def __init__(self, name, graph:SN_Graph, itemset, coupons) -> None:
         self._graph = graph
         self.name = name
 
-        self._itemset = ItemsetFlyweight(items["price"], items["topic"])
-        for node in self._graph:
-            self._graph.nodes[node]['topic'] = self._randomTopic(len(items["topic"]['0']))
+        self._itemset = ItemsetFlyweight(itemset["price"], itemset["topic"]) if type(itemset) == dict else itemset
 
         for coupon in coupons:
             coupon.accItemset = self._itemset[coupon.accItemset]
@@ -80,7 +78,7 @@ class DiffusionModel():
         k = min(self._itemset.number, self._graph.number_of_nodes())
 
         # List of single items.
-        items = [self._itemset[i] for i in range(k)]
+        items = [self._itemset[id] for id in list(self._itemset.PRICE.keys())]
 
         # list of the seeds is sorted by out-degree.
         seeds = self._selectSeeds(k) 

@@ -23,4 +23,4 @@
 
 # Amazon
 - meta_{category}.json: Raw source dataset for {category}
-- preprocessed_{category}.json: Just maintain the properties which keep order, including asin, also_view, also_buy, category and price. 
+- preprocessed_{category}.json: Each of the transactions contain the properties which keep order, including asin, also_view, also_buy, category and price. 
