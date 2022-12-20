@@ -8,6 +8,9 @@ class SN_Graph(nx.DiGraph):
     '''
         Note: 邊的權重若預設為1/(v_indegree)，則(v,u)和(u,v)的權重並不相同，因此用有向圖替代無向圖
 
+        Param:
+            isDirect (bool): Whether the orignal social network is direct. Default is False.
+
         Attribute of Node:
             desired_set(string)
             adopted_set(string)
@@ -16,9 +19,9 @@ class SN_Graph(nx.DiGraph):
             is_tested(bool):
             weight(float): 1/in_degree(u)
     '''
-    def __init__(self) -> None:
-        super().__init__(self)
-
+    def __init__(self, isDirected=False) -> None:
+        super().__init__()
+        self.isDirected = isDirected
 
     def construct(self, edges_file, node_file, topic:TopicModel|dict) -> None:
         '''
@@ -29,25 +32,16 @@ class SN_Graph(nx.DiGraph):
             nodes_file (string): 包含topic的節點資料路徑
             topic (Topic)
         '''
-        def _initNodeIfExist(id) -> bool:
-            if id not in topic:
-                return False
-
-            self.add_node(id, desired_set=None, adopted_set=None, topic=topic[id])
-            return True
-
         with open(edges_file, "r", encoding="utf8") as f:
             for line in f:
                 nodes = line.split(",")
                 src = nodes[0]
                 det = nodes[1][:-1]
 
-                if _initNodeIfExist(src) and _initNodeIfExist(det):
+                if src in topic and det in topic:
                     self.add_edge(src, det)
-                    self.edges[src, det]["is_tested"] = False
-                
-        for src, det in list(self.edges):
-            self.edges[src, det]["weight"] = 1/self.in_degree(det)
+
+        self.initAttr(topic)
 
     def _bfs_sampling(self, k_nodes):
 
@@ -118,8 +112,28 @@ class SN_Graph(nx.DiGraph):
                 insert(topNodes, pair)
                 
         return topNodes
+    
+    def is_directed(self):
+        return self.isDirected
 
-                
+    def add_edge(self, u_of_edge, v_of_edge, **attr):
+        if not self.is_directed():
+            super().add_edge(v_of_edge, u_of_edge, **attr)
 
+        super().add_edge(u_of_edge, v_of_edge, **attr)
 
+    def initAttr(self, topic):
 
+        def _initEdgeAttr():
+            for src, det in list(self.edges):
+                self.edges[src, det]["weight"] = 1/self.in_degree(det)
+                self.edges[src, det]["is_tested"] = False
+
+        def _initNodeAttr(topic) -> bool:
+            for node in list(self.nodes):
+                self.nodes[node]["desired_set"] = None
+                self.nodes[node]["adopted_set"] = None
+                self.nodes[node]["topic"] = topic[node]
+
+        _initEdgeAttr()
+        _initNodeAttr(topic)

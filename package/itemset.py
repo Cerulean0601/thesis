@@ -82,7 +82,7 @@ class ItemsetFlyweight():
         '''
         self.PRICE = prices # dict
         self.TOPIC = topic if type(topic) == dict else topic.getItemsTopic()
-        self.number = len(list(prices.values()))
+        self.size = len(list(prices.values()))
         self._map = dict()
         
         for key in self.TOPIC.keys():
@@ -93,7 +93,7 @@ class ItemsetFlyweight():
     def __getitem__(self, ids) -> Itemset:
         '''
             Args:
-                ids(str, set, array-like): all of ids in the itemset 
+                ids(str, array-like): all of ids in the itemset 
         '''
         sortedNum = [ids] if type(ids) == str else list(ids)
 
@@ -114,9 +114,10 @@ class ItemsetFlyweight():
         return itemset
     
     def __iter__(self):
-        number_of_items = len(self.PRICE)
-        for size_itemset in range(number_of_items):
-            for combination in combinations(range(number_of_items), size_itemset + 1):
+        numbering_of_items = list(self.PRICE.keys())
+
+        for size_itemset in range(self.size):
+            for combination in combinations(numbering_of_items, size_itemset + 1):
                 itemset = self.__getitem__(combination)
                 yield str(itemset), itemset
 

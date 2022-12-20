@@ -43,3 +43,12 @@ def extractTokensWithID(name, path_dataset):
             list_tokens.append(tokens)
             ids.append(id)
     return ids, list_tokens
+
+def getItemsPrice(filename) -> list:
+    prices = dict()
+
+    with open(filename, "r", encoding="utf8") as dataFile:
+        for line in dataFile:
+            id, *context, price = line.split(",")
+            prices[id] = float(price[:-1])
+    return prices

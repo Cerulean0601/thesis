@@ -19,10 +19,6 @@ class DiffusionModel():
 
         self._itemset = ItemsetFlyweight(itemset["price"], itemset["topic"]) if type(itemset) == dict else itemset
 
-        for coupon in coupons:
-            coupon.accItemset = self._itemset[coupon.accItemset]
-            coupon.disItemset = self._itemset[coupon.disItemset]
-
         self._coupons = coupons
         self._user_proxy = UsersProxy(self._graph, self._itemset, self._coupons)
     
@@ -59,11 +55,14 @@ class DiffusionModel():
     
     def _propagate(self, src, det, itemset):
         '''
-            若影響成功則把itemset放到det節點的desired_set，並且將edge的is_tested設定為true後，回傳影響結果
+            若影響成功則把itemset放到det節點的desired_set, 並且將edge的is_tested設定為true後, 回傳影響結果
         '''
         edge = self._graph.edges[src, det]
         if not edge["is_tested"]:
             self._graph.edges[src, det]["is_tested"] = True
+            if not self._graph.is_directed():
+                self._graph.edges[det, src]["is_tested"] = True
+
             if uniform(0, 1) <= edge["weight"]:
                 self._graph.nodes[det]["desired_set"] = self._itemset.union(
                     self._graph.nodes[det]["desired_set"],
@@ -75,7 +74,7 @@ class DiffusionModel():
 
     def diffusion(self):
 
-        k = min(self._itemset.number, self._graph.number_of_nodes())
+        k = min(self._itemset.size, self._graph.number_of_nodes())
 
         # List of single items.
         items = [self._itemset[id] for id in list(self._itemset.PRICE.keys())]
@@ -129,9 +128,9 @@ class DiffusionModel():
                 The first column is the price of items, and the others are topics.
             '''
             with open(filename + ".items", 'w', encoding="utf8", newline="") as f:
-                for i in range(itemset.numbering):
-                    f.write(str(itemset.PRICE[i]) + ",")
-                    for topic in itemset.TOPIC[str(i)]:
+                for asin, price in itemset.PRICE.items():
+                    f.write(asin + "," + str(itemset.PRICE[asin]) + ",")
+                    for topic in itemset.TOPIC[asin]:
                         f.write(str(topic) + ",")
                     f.write("\n")
 
