@@ -86,7 +86,7 @@ class SN_Graph(nx.DiGraph):
 
     def top_k_nodes(self, k: int) -> list:
         '''
-            插入排序選出前k個out degree最高的節點, 若 degree 相同則從 id 最低的開始
+            插入排序選出前k個out degree最高的節點, 若 degree 相同則從 id 最小的開始
 
             Return:
                 list : 節點id
@@ -96,8 +96,10 @@ class SN_Graph(nx.DiGraph):
                 l.append(ele)
             else:
                 for i in range(len(l)):
-                    if l[i][1] < ele[1]:
-                        l.insert(i+1, ele)
+                    if l[i][1] <= ele[1]:
+                        while i < len(l) and l[i][1] == ele[1] and l[i][0] <= ele[0]:
+                            i += 1
+                        l.insert(i, ele)
                         break
             
         topNodes = []

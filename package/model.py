@@ -42,16 +42,14 @@ class DiffusionModel():
             將商品分配給種子節點，並且放進對應的 desired_set。
             分配策略: 單價越高的商品分給degree越高的節點
         '''
-        sortedItems = []
-        for item in items:
-            insertPos = 0
-            for i in range(len(sortedItems)):
-                if item.price > sortedItems[i].price:
-                    insertPos = i
-            sortedItems.insert(insertPos, item)
+        for i in range(len(items)):
+            for j in range(i):
+                if items[i].price > items[j].price:
+                    items.insert(j, items[i])
+                    del items[i+1]
 
         for i in range(len(seeds)):
-            self._graph.nodes[seeds[i][0]]["desired_set"] = sortedItems[i]
+            self._graph.nodes[seeds[i][0]]["desired_set"] = items[i]
     
     def _propagate(self, src, det, itemset):
         '''
