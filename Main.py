@@ -49,4 +49,3 @@ if __name__ == '__main__':
 
     relation = ItemRelation()
     relation.construct(r"D:\\論文實驗\data\\amazon\\test.csv")
-    print(relation)

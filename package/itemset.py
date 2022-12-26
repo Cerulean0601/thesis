@@ -67,21 +67,95 @@ class ItemProvider(BaseProvider):
         return np.random.rand(1, self._k)
     '''
 
+class ItemRelation():
+    def __init__(self, relation: pd.DataFrame = None):
+        self._relation = relation
+
+        if relation is not None:
+            self._normalize()
+
+    def __str__(self) -> str:
+        sorted_index = self._relation.sort_index(ascending=True)
+        sorted_index = sorted_index.reindex(sorted(sorted_index.columns), axis=1)
+
+        return str(sorted_index)
+
+    def __getitem__(self, x):
+        return self._relation[x]
+
+    def construct(self, dataset):
+        '''
+            計算產品替代互補關係程度矩陣。對於任意倆倆商品x,y如下計算
+            1. 買了x也買了y, 則R_x,y + 1; 看了x卻買了y, 則R_x,y - 1
+            2. 做 max-min 正規化
+            3. 對於每一個元素t做 1 + sigmoid(t)
+        '''
+
+        def counting(_relation, src_asin, collection, buyOrView):
+            op = 1 if buyOrView == "buy" else -1
+
+            for dest_asin in collection:
+                if dest_asin not in _relation[src_asin]:
+                    _relation[src_asin][dest_asin] = op
+                else:
+                    _relation[src_asin][dest_asin] += op 
+
+        self._relation = dict()
+        with open(dataset, "r", encoding="utf-8") as f:
+            for line in f:
+                asin, also_view, also_buy, *other = line.split(",")
+                if asin not in self._relation:
+                    self._relation[asin] = dict()
+
+                also_view_set = also_view.split(" ")
+                also_buy_set = also_buy.split(" ")
+                counting(self._relation, asin, also_buy_set, "buy")
+                counting(self._relation, asin, also_view_set, "view")
+        
+        self._relation = pd.DataFrame.from_dict(self._relation)
+        self._normalize()
+    
+    def _normalize(self):
+        def tranform(frame):
+            return 1 + (1/ (1+np.exp(-frame)) )
+        
+        def min_max(frame):
+            maxValue = frame.abs().max().max()
+            
+            return frame / maxValue
+
+        sorted_index = self._relation.sort_index(ascending=True)
+        sorted_index = sorted_index.reindex(sorted(sorted_index.columns), axis=1)
+        print(sorted_index)
+        self._relation = min_max(self._relation.fillna(0))
+        sorted_index = self._relation.sort_index(ascending=True)
+        sorted_index = sorted_index.reindex(sorted(sorted_index.columns), axis=1)
+        print(sorted_index)
+        self._relation = tranform(self._relation)
+        sorted_index = self._relation.sort_index(ascending=True)
+        sorted_index = sorted_index.reindex(sorted(sorted_index.columns), axis=1)
+        print(sorted_index)
+        for numbering, value in self._relation.items():
+            # if x.numbering == y.numbering, assign nan
+            value[numbering] = math.nan
+
 class ItemsetFlyweight():
   
     '''
         For creating itemset instance with flyweight pattern 
     '''
     
-    def __init__(self, prices:dict, topic:TopicModel|dict) -> None:
+    def __init__(self, prices:dict, topic:TopicModel|dict, relation:ItemRelation = None) -> None:
         '''
             If item_file is None, prices and topics should be set.
             Args:
                 price (dict): mapping from id to price
                 topic (TopicModel)
+                relation (dict|pd.DataFrame): It is a two dimensional matrix which the indices are asin of the item.
         '''
         self.PRICE = prices # dict
         self.TOPIC = topic if type(topic) == dict else topic.getItemsTopic()
+        self._relation = relation
         self.size = len(list(prices.values()))
         self._map = dict()
         
@@ -95,7 +169,7 @@ class ItemsetFlyweight():
             Args:
                 ids(str, array-like): all of ids in the itemset 
         '''
-        sortedNum = [ids] if type(ids) == str else list(ids)
+        sortedNum = ids.split(" ") if type(ids) == str else list(ids)
 
         sortedNum = sorted(sortedNum)
         key = " ".join(str(num) for num in sortedNum)
@@ -107,7 +181,7 @@ class ItemsetFlyweight():
         else:
             itemset = Itemset(sortedNum,
                         sum([self.PRICE[i] for i in sortedNum]),
-                        self._aggregateTopic(0,1) if key not in self.TOPIC else self.TOPIC[key] # the argument is useless because it's random
+                        self._aggregateTopic(sortedNum) if key not in self.TOPIC else self.TOPIC[key] # the argument is useless because it's random
                         )
             self._map[key] = itemset
 
@@ -122,17 +196,23 @@ class ItemsetFlyweight():
                 yield str(itemset), itemset
 
 
-    def _aggregateTopic(self, a, b):
-        '''
-            Radomly generate the topic
-        '''
-        test = True
-        if test:
-            first_index = list(self.TOPIC.keys())[0]
-            Z = len(self.TOPIC[first_index])
-            topic = [random() for i in range(Z)]
-            denominator = sum(topic)
-            return [t/denominator for t in topic]
+    def _aggregateTopic(self, collection):
+        aggregated = [0]*len(self._map[collection[0]].topic)
+        coeff_list = []
+        
+        for i in collection:
+            coeff_list.append(0)
+            for j in collection:
+                if j != i:
+                    coeff_list[-1] += self._relation[j][i]
+
+        normDenominator = sum(coeff_list)
+        for i in range(len(collection)):
+            topic = self._map[collection[i]].topic
+            for j in range(len(topic)):
+                aggregated[j] += ((topic[j]*coeff_list[i])/normDenominator)
+                
+        return aggregated
 
     @staticmethod
     def _toSet(a):
@@ -198,58 +278,5 @@ class ItemsetFlyweight():
 
         return a_set.issuperset(b_set)
 
-class ItemRelation():
-    def __init__(self, relation = pd.DataFrame()):
-        self._relation = relation
-    
-    def __str__(self) -> str:
-        sorted_index = self._relation.sort_index(ascending=True)
-        sorted_index = sorted_index.reindex(sorted(sorted_index.columns), axis=1)
-
-        return str(sorted_index)
-
-    def construct(self, dataset):
-        '''
-            計算產品替代互補關係程度矩陣。對於任意倆倆商品x,y如下計算
-            1. 買了x也買了y, 則R_x,y + 1; 看了x卻買了y, 則R_x,y - 1
-            2. 做 max-min 正規化
-            3. 對於每一個元素t做 1 + sigmoid(t)
-        '''
-
-        def counting(_relation, src_asin, collection, buyOrView):
-            op = 1 if buyOrView == "buy" else -1
-
-            for dest_asin in collection:
-                if dest_asin not in _relation[src_asin]:
-                    _relation[src_asin][dest_asin] = op
-                else:
-                    _relation[src_asin][dest_asin] += op 
-
-        def tranform(frame):
-            return 1 + (1/ (1+np.exp(frame)) )
-        
-        def min_max(frame):
-            maxValue = frame.max().max()
-            minValue = frame.min().min()
-
-            return (frame - maxValue) / (maxValue - minValue)
-
-        self._relation = dict()
-        with open(dataset, "r", encoding="utf-8") as f:
-            for line in f:
-                asin, also_view, also_buy, *other = line.split(",")
-                if asin not in self._relation:
-                    self._relation[asin] = dict()
-
-                also_view_set = also_view.split(" ")
-                also_buy_set = also_buy.split(" ")
-                counting(self._relation, asin, also_buy_set, "buy")
-                counting(self._relation, asin, also_view_set, "view")
-        
-        self._relation = pd.DataFrame.from_dict(self._relation)
-        # normalize
-        self._relation = min_max(self._relation.fillna(0))
-        print(self._relation)
-        self._relation = tranform(self._relation)
 
         

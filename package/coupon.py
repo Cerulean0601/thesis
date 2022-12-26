@@ -2,17 +2,16 @@ from itemset import Itemset
 
 class Coupon():
 
-    def __init__(self, accThreshold, accItemset, discount, disItemset):
+    def __init__(self, accThreshold:float, accItemset, discount:float, disItemset):
         '''
         It is a sturcture for coupons.
 
         Arg:
-            param (list):
-                accThreshold (int): The threshold of discounting.
-                accItemset (list|string): Accumlative items that can be redeemed for discounts, if 
-                    the total price is equal or greater than the threshold.
-                discount (int): discount amount
-                disItemset (list|string): The items that can be discount.
+            accThreshold (float): The threshold of discounting.
+            accItemset (list|string): Accumlative items that can be redeemed for discounts, if 
+                the total price is equal or greater than the threshold.
+            discount (float): discount amount
+            disItemset (list|string): The items that can be discount.
         '''
         self.accThreshold = accThreshold
         self.accItemset = accItemset

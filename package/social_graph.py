@@ -12,9 +12,11 @@ class SN_Graph(nx.DiGraph):
             isDirect (bool): Whether the orignal social network is direct. Default is False.
 
         Attribute of Node:
-            desired_set(string)
-            adopted_set(string)
-        
+            desired_set(string, Itemset)
+            adopted_set(string, Itemset)
+            adopted_records (list): It is a list of [Itemset, Coupon, int]. If users adopt items without coupons, the value is None.
+            Third variable is the traded amount.
+
         Attribute of Edge:
             is_tested(bool):
             weight(float): 1/in_degree(u)
@@ -135,6 +137,7 @@ class SN_Graph(nx.DiGraph):
             for node in list(self.nodes):
                 self.nodes[node]["desired_set"] = None
                 self.nodes[node]["adopted_set"] = None
+                self.nodes[node]["adopted_records"] = []
                 self.nodes[node]["topic"] = topic[node]
 
         _initEdgeAttr()

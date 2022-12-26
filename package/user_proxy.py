@@ -176,7 +176,7 @@ class UsersProxy():
     def adopt(self, user_id):
         '''
             使用者購買行為, 若挑選的主商品皆為已購買過的商品則不會產生任何的購買行為, 並且回傳None。
-            將實際交易的商品存到使用者的 adopted set, 回傳考量的商品組合。
+            將實際交易的商品存到使用者的 adopted set, 回傳考量的商品組合, 實際交易的商品組合, 實際交易價格。
 
             Return:
                 dict: 
@@ -201,15 +201,19 @@ class UsersProxy():
             trade["decision_items"] = mainItemset["items"]
             trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"])
             trade["amount"] = trade["tradeOff_items"].price
+            trade["coupon"] = None
             logging.info("user {0} choose main itemset {1}.".format(user_id, mainItemset["items"]))
             
         else:
             trade["decision_items"] = addtional["items"]
             trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"]) 
             trade["amount"] = trade["tradeOff_items"].price - self._discount(trade["tradeOff_items"], addtional["items"]["coupon"])
+            trade["coupon"] = addtional["items"]["coupon"]
             logging.info("user {0} choose addtional itemset {} with coupon {}.".format(user_id, mainItemset["items"], addtional["coupon"]))
 
         self._graph.nodes[user_id]["adopted_set"] = self._itemset.union(
                                 self._graph.nodes[user_id]["adopted_set"],
                                 trade["tradeOff_items"])
+
+        self._graph.nodes[user_id]["adopted_records"].append((trade["tradeOff_items"], trade["coupon"], trade["amount"]))
         return trade

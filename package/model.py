@@ -92,7 +92,7 @@ class DiffusionModel():
             node_id = propagatedQueue.get()
             
             trade = self._user_proxy.adopt(node_id)
-            logging.info("user: {0}, traded items:{1}".format(node_id, trade["decision_items"]) )
+            logging.info("user {0} traded {1}".format(node_id, trade["decision_items"]) )
 
             # 如果沒購買任何東西則跳過此使用者不做後續的流程
             if trade == None:
@@ -106,6 +106,10 @@ class DiffusionModel():
                     logging.debug("{0}'s desired_set: {1}".format(out_neighbor, self._graph.nodes[out_neighbor]["desired_set"]))
                     propagatedQueue.put(out_neighbor)
     
+    def objectFunction(self):
+        '''
+            在給定種子集S的情況下, 成功影響u的期望值
+        '''
     def save(self, dir_path):
 
         filename = dir_path + self.name

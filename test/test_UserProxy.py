@@ -29,7 +29,7 @@ class TestUserProxy(unittest.TestCase):
     def tearDown(self) -> None:
         self._graph.clear()
         return super().tearDown()
-
+        
     def test_calculateVP(self):
         # calculate VP without coupon
         self._graph.add_node("user", adopted_set=None, desired_set=None, topic=[0.2, 0.6])
