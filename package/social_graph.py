@@ -21,11 +21,13 @@ class SN_Graph(nx.DiGraph):
             is_tested(bool):
             weight(float): 1/in_degree(u)
     '''
-    def __init__(self, isDirected=False) -> None:
+    def __init__(self, node_topic:TopicModel|dict = None, isDirected=False) -> None:
         super().__init__()
         self.isDirected = isDirected
+        self.topic = node_topic
 
-    def construct(self, edges_file, node_file, topic:TopicModel|dict) -> None:
+    @staticmethod
+    def construct(nodes_file, edges_file, node_topic:TopicModel|dict, isDirected=False) -> None:
         '''
           從edge的資料檔案建立點, 邊, 權重
 
@@ -34,17 +36,25 @@ class SN_Graph(nx.DiGraph):
             nodes_file (string): 包含topic的節點資料路徑
             topic (Topic)
         '''
+        graph = SN_Graph(isDirected=isDirected)
         with open(edges_file, "r", encoding="utf8") as f:
             for line in f:
                 nodes = line.split(",")
                 src = nodes[0]
-                det = nodes[1][:-1]
+                det = nodes[1] if nodes[1][-1] != "\n" else nodes[1][:-1]
 
-                if src in topic and det in topic:
-                    self.add_edge(src, det)
+                if src in node_topic and det in node_topic:
+                    graph.add_edge(src, det)
 
-        self.initAttr(topic)
+        with open(nodes_file, "r", encoding="utf8") as f:
+            for line in f:
+                id, *context = line.split(",")
+                if id not in graph.nodes:
+                    graph.add_node(id)
 
+        graph.initAttr()
+        return graph
+        
     def _bfs_sampling(self, k_nodes):
 
         if len(list(self.nodes)) == 0:
@@ -117,28 +127,48 @@ class SN_Graph(nx.DiGraph):
                 
         return topNodes
     
-    def is_directed(self):
+    def convertDirected(self):
         return self.isDirected
 
-    def add_edge(self, u_of_edge, v_of_edge, **attr):
-        if not self.is_directed():
-            super().add_edge(v_of_edge, u_of_edge, **attr)
+    def add_edge(self, src, det, **attr):
+        if not self.convertDirected():
+            super().add_edge(det, src, **attr)
+        
+        super().add_edge(src, det, **attr)
+        # Because of calculation of the weight of the edges, it should update all the edges.
+        self._initAllEdge()
+        self._initNode(src)
+        self._initNode(det)
+        
+    def add_node(self, node_for_adding, **attr):
+        super().add_node(node_for_adding, **attr)
+        self._initNode(node_for_adding, **attr)
 
-        super().add_edge(u_of_edge, v_of_edge, **attr)
+    def _initEdge(self, src, det, **attr):
+        self.edges[src, det]["weight"] = 1/self.in_degree(det)
+        self.edges[src, det]["is_tested"] = False
 
-    def initAttr(self, topic):
+        for key, value in attr.items():
+            self.edges[src, det][key] = value
 
-        def _initEdgeAttr():
-            for src, det in list(self.edges):
-                self.edges[src, det]["weight"] = 1/self.in_degree(det)
-                self.edges[src, det]["is_tested"] = False
+    def _initAllEdge(self):
+        for src, det in list(self.edges):
+            self._initEdge(src, det)
+    
+    def _initNode(self, id, **attr):
+        self.nodes[id]["desired_set"] = None
+        self.nodes[id]["adopted_set"] = None
+        self.nodes[id]["adopted_records"] = []
+        if self.topic != None:
+            self.nodes[id]["topic"] = self.topic[id]
 
-        def _initNodeAttr(topic) -> bool:
-            for node in list(self.nodes):
-                self.nodes[node]["desired_set"] = None
-                self.nodes[node]["adopted_set"] = None
-                self.nodes[node]["adopted_records"] = []
-                self.nodes[node]["topic"] = topic[node]
+        for key, value in attr.items():
+            self.nodes[id][key] = value
+            
+    def _initAllNode(self):
+        for node in list(self.nodes):
+            self._initNode(node)
 
-        _initEdgeAttr()
-        _initNodeAttr(topic)
+    def initAttr(self):
+        self._initAllEdge()
+        self._initAllNode()

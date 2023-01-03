@@ -123,18 +123,10 @@ class ItemRelation():
             maxValue = frame.abs().max().max()
             
             return frame / maxValue
-
-        sorted_index = self._relation.sort_index(ascending=True)
-        sorted_index = sorted_index.reindex(sorted(sorted_index.columns), axis=1)
-        print(sorted_index)
+            
         self._relation = min_max(self._relation.fillna(0))
-        sorted_index = self._relation.sort_index(ascending=True)
-        sorted_index = sorted_index.reindex(sorted(sorted_index.columns), axis=1)
-        print(sorted_index)
         self._relation = tranform(self._relation)
-        sorted_index = self._relation.sort_index(ascending=True)
-        sorted_index = sorted_index.reindex(sorted(sorted_index.columns), axis=1)
-        print(sorted_index)
+        
         for numbering, value in self._relation.items():
             # if x.numbering == y.numbering, assign nan
             value[numbering] = math.nan
@@ -169,6 +161,9 @@ class ItemsetFlyweight():
             Args:
                 ids(str, array-like): all of ids in the itemset 
         '''
+        if type(ids) == Itemset:
+            return ids
+            
         sortedNum = ids.split(" ") if type(ids) == str else list(ids)
 
         sortedNum = sorted(sortedNum)
@@ -277,6 +272,7 @@ class ItemsetFlyweight():
         b_set = ItemsetFlyweight._toSet(b)
 
         return a_set.issuperset(b_set)
+        
 
 
         

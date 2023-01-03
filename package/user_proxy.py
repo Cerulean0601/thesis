@@ -19,7 +19,7 @@ class UsersProxy():
             return self._mainItemsetVP(user_id, itemset)
         else:
             if mainItemset == None:
-                raise ValueError("If coupon isn't None, the mainItemset should be set")
+                raise ValueError("If there are any coupons, the mainItemset should be set")
             return self._addtionallyAdoptVP(user_id, mainItemset, itemset, coupon)
   
     def _similarity(self, user_id, itemset):
@@ -93,6 +93,7 @@ class UsersProxy():
                 if self._itemset.issubset(adopted_set, X) and not adopted_set == X:
 
                     VP = self._VP_ratio(user_id, X)
+                    logging.debug("User {0}, items {1}, VP ratio {2}".format(user_id, self._itemset[X], VP))
                     if VP > max_VP:
                         max_VP = VP
                         maxVP_mainItemset = X
@@ -111,9 +112,10 @@ class UsersProxy():
                 addtionalItemset(Itemset): 使用者在第二階段考量的商品組合
         '''
         mainItemset = self._itemset.difference(mainItemset, self._graph.nodes[user_id]["adopted_set"])
-        accThreshold = self._itemset.intersection(mainItemset, self._itemset[coupon.accItemset]).price # 已累積的金額
+        accAmount = self._itemset.intersection(mainItemset, self._itemset[coupon.accItemset]) # 已累積的金額
+        accAmount = 0 if accAmount == None else accAmount.price
         priceThreshold = coupon.accThreshold
-        ratio = min(accThreshold/priceThreshold, 1) # 滿額佔比 \phi
+        ratio = min(accAmount/priceThreshold, 1) # 滿額佔比 \phi
 
         # 扣除已擁有的商品後，實際交易的商品
         dealItemset = self._itemset.difference(itemset, self._graph.nodes[user_id]["adopted_set"])
@@ -146,10 +148,14 @@ class UsersProxy():
             if self._itemset.issuperset(itemset_instance, mainItemset):
                 for i in range(len(self._coupons)):
                     # X 必須超過滿額門檻
-                    intersection = self._itemset.intersection(itemset_instance, self._coupons[i].accItemset)
+                    diff_adopted = self._itemset.difference(itemset_instance, self._graph.nodes[user_id]["adopted_set"])
+                    intersection = self._itemset.intersection(diff_adopted, self._coupons[i].accItemset)
+                    
                     if intersection != None and intersection.price > self._coupons[i].accThreshold:
                         VP = self._addtionallyAdoptVP(user_id, mainItemset, itemset_instance, self._coupons[i])
-                        if(VP > max_VP):
+                        logging.debug("User {0}, items {1}, VP_ratio {2}, Coupon {3}".format(user_id, itemset_instance, VP, self._coupons[i]))
+
+                        if VP > max_VP:
                             max_VP = VP
                             maxDict = {"items": itemset_instance, "VP": max_VP, "coupon": self._coupons[i]}
 
@@ -185,6 +191,7 @@ class UsersProxy():
 
                 None: 未發生購買行為
         '''
+        logging.debug("Adopt Main Itemset")
         mainItemset = self._adoptMainItemset(user_id)
 
         # 主商品皆為已購買過的商品
@@ -194,6 +201,7 @@ class UsersProxy():
             logging.debug("user {0}'s main itemset is None.".format(user_id))
             return None
 
+        logging.debug("Adopt Addtional Itemset")
         addtional = self._adoptAddtional(user_id, mainItemset["items"])
         trade = dict()
 
@@ -207,13 +215,13 @@ class UsersProxy():
         else:
             trade["decision_items"] = addtional["items"]
             trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"]) 
-            trade["amount"] = trade["tradeOff_items"].price - self._discount(trade["tradeOff_items"], addtional["items"]["coupon"])
-            trade["coupon"] = addtional["items"]["coupon"]
-            logging.info("user {0} choose addtional itemset {} with coupon {}.".format(user_id, mainItemset["items"], addtional["coupon"]))
+            trade["amount"] = trade["tradeOff_items"].price - self._discount(trade["tradeOff_items"], addtional["coupon"])
+            trade["coupon"] = addtional["coupon"]
+            logging.info("user {0} choose addtional itemset {1} with coupon {2}.".format(user_id, mainItemset["items"], addtional["coupon"]))
 
         self._graph.nodes[user_id]["adopted_set"] = self._itemset.union(
                                 self._graph.nodes[user_id]["adopted_set"],
                                 trade["tradeOff_items"])
 
-        self._graph.nodes[user_id]["adopted_records"].append((trade["tradeOff_items"], trade["coupon"], trade["amount"]))
+        self._graph.nodes[user_id]["adopted_records"].extend([trade["tradeOff_items"], trade["coupon"], trade["amount"]])
         return trade

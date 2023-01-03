@@ -3,14 +3,16 @@ from queue import Queue
 from random import uniform, random
 import logging
 import re
-from networkx import NetworkXError, write_gml, read_gml
+from networkx import NetworkXError, write_gml, read_gml, set_node_attributes
 from os.path import exists
+import pandas as pd
 
 # custom package
 from user_proxy import UsersProxy
 from itemset import ItemsetFlyweight, Itemset
 from coupon import Coupon
 from social_graph import SN_Graph
+from topic import TopicModel
 
 class DiffusionModel():
     def __init__(self, name, graph:SN_Graph, itemset, coupons) -> None:
@@ -50,7 +52,7 @@ class DiffusionModel():
 
         for i in range(len(seeds)):
             self._graph.nodes[seeds[i][0]]["desired_set"] = items[i]
-    
+            
     def _propagate(self, src, det, itemset):
         '''
             若影響成功則把itemset放到det節點的desired_set, 並且將edge的is_tested設定為true後, 回傳影響結果
@@ -58,7 +60,7 @@ class DiffusionModel():
         edge = self._graph.edges[src, det]
         if not edge["is_tested"]:
             self._graph.edges[src, det]["is_tested"] = True
-            if not self._graph.is_directed():
+            if not self._graph.convertDirected():
                 self._graph.edges[det, src]["is_tested"] = True
 
             if uniform(0, 1) <= edge["weight"]:
@@ -71,6 +73,11 @@ class DiffusionModel():
         return False
 
     def diffusion(self):
+        '''
+            NOTE: 第一個seed會在買完後就傳遞影響力, 假如被傳遞的節點為第二個seed, 那後來seed的desired set
+            不只會包含他被分配到的商品, 也會包含seed影響成功的商品。似乎在t step所有被影響成功的節點買完後,
+            才開始傳遞影響力比較合理? 
+        '''
 
         k = min(self._itemset.size, self._graph.number_of_nodes())
 
@@ -80,19 +87,18 @@ class DiffusionModel():
         # list of the seeds is sorted by out-degree.
         seeds = self._selectSeeds(k) 
         self._allocate(seeds, items)
+        propagatedQueue = Queue()
         for seed, degree in seeds:
             logging.debug("Allocate {0} to {1}".format(self._graph.nodes[seed]["desired_set"], seed))
+            propagatedQueue.put(seed)
+
         logging.info("Allocation is complete.")
 
-        propagatedQueue = Queue()
-        for seed, out_degree in seeds:
-            propagatedQueue.put(seed)
-        
         while not propagatedQueue.empty():
             node_id = propagatedQueue.get()
             
             trade = self._user_proxy.adopt(node_id)
-            logging.info("user {0} traded {1}".format(node_id, trade["decision_items"]) )
+            logging.info("user {0} traded {1}".format(node_id, trade["tradeOff_items"]) )
 
             # 如果沒購買任何東西則跳過此使用者不做後續的流程
             if trade == None:
@@ -105,35 +111,41 @@ class DiffusionModel():
                 if is_activated:
                     logging.debug("{0}'s desired_set: {1}".format(out_neighbor, self._graph.nodes[out_neighbor]["desired_set"]))
                     propagatedQueue.put(out_neighbor)
-    
-    def objectFunction(self):
-        '''
-            在給定種子集S的情況下, 成功影響u的期望值
-        '''
+                    
     def save(self, dir_path):
 
         filename = dir_path + self.name
         
         def save_graph(G, filename):
             def  stringizer(value):
-                if isinstance(value, Itemset):
+                if isinstance(value, (Itemset, Coupon)):
                     return str(value)
                 elif value == None:
                     return ""
-                
+
                 return value
             
             write_gml(G, filename + ".graph", stringizer)
 
         def save_items(itemset: ItemsetFlyweight, filename):
             '''
-                The first column is the price of items, and the others are topics.
+                The first column is the asin of items, then price and the others are topics.
             '''
             with open(filename + ".items", 'w', encoding="utf8", newline="") as f:
-                for asin, price in itemset.PRICE.items():
+                f.write("number {0}\n".format(len(itemset.PRICE)))
+                f.write("asin,price,topic1,topic2,...\n")
+                asinList = list(itemset.PRICE.keys())
+                for asin in asinList:
                     f.write(asin + "," + str(itemset.PRICE[asin]) + ",")
                     for topic in itemset.TOPIC[asin]:
                         f.write(str(topic) + ",")
+                    f.write("\n")
+
+                # save the relation of all items
+                for x in asinList:
+                    for y in asinList:
+                        f.write(str(itemset._relation[x][y]))
+                        f.write(" ")
                     f.write("\n")
 
         def save_coupons(coupons, filename):
@@ -144,47 +156,91 @@ class DiffusionModel():
         save_graph(self._graph, filename)
         save_items(self._itemset, filename)
         save_coupons(self._coupons, filename)
-
-    def load(self, dir_path):
-
-        filename = dir_path + self.name
-
+        
+    @staticmethod
+    def load(modelname, path):
+        
         def load_graph(filename):
-            graph = read_gml(filename + ".graph", destringizer=int)
-            for node_id in graph:
-                itemset_id = self._graph.nodes[node_id]["desired_set"]
-                self._graph.nodes[node_id]["desired_set"] = self._itemset[itemset_id] if itemset_id != "" else None
+            sn_graph = SN_Graph()
+            graph = read_gml(filename + ".graph")
 
-                itemset_id = self._graph.nodes[node_id]["adopted_set"]
-                self._graph.nodes[node_id]["adopted_set"] = self._itemset[itemset_id] if itemset_id != "" else None
-            return graph
+            for src, det, data in graph.edges(data=True):
+                sn_graph.add_edge(src, det, **data)
+            
+            for node, data in graph.nodes(data=True):
+                if node not in sn_graph:
+                    sn_graph.add_node(node, **data)
+                else:
+                    set_node_attributes(sn_graph, {node:data})
+                    
+            return sn_graph
 
         def load_items(filename):
                     
-            prices = []
-            topics = []
+            prices = dict()
+            topics = dict()
+            relation = dict()
+            asinList = list()
             with open(filename + ".items", "r") as f:
-                for line in f:
-                    price, *topic = line.split(",")
-                    prices.append(price)
-                    topics.append(topic)
+                number = f.readline().split(" ")[1]
+                header = f.readline()
+                for i in range(int(number)):
+                    line = f.readline()
+                    asin, price, *topic = line.split(",")
+                    asinList.append(asin)
+                    prices[asin] = float(price)
+                    topics[asin] = [float(t) for t in topic[:-1]] # exclude new line
 
-            return ItemsetFlyweight(prices, topics)
+                for x in asinList:
+                    if x not in relation:
+                        relation[x] = dict()
 
-        def load_coupons(itemset: ItemsetFlyweight, filename):
+                    line = f.readline().split(" ")
+                    for j in range(int(number)):
+                        y = asinList[j]
+                        relation[x][y] = float(line[j])
+
+            return ItemsetFlyweight(prices, topics, pd.DataFrame.from_dict(relation))
+
+        def load_coupons(filename):
             coupons = []
             with open(filename + ".coupons", "r") as f:
                 for line in f:
                     attr = line.split(",")
                     coupons.append(Coupon(
-                                    int(attr[0]),
-                                    itemset[attr[1]], 
-                                    int(attr[2]),
-                                    itemset[attr[3]])
+                                    float(attr[0]),
+                                    attr[1], 
+                                    float(attr[2]),
+                                    attr[3])
                                 )
             
             return coupons
 
-        self._graph = load_graph(filename)
-        self._itemset = load_items(filename)
-        self._coupons = load_coupons(self._itemset, filename)
+        filename = path + modelname
+        graph = load_graph(filename)
+        itemset = load_items(filename)
+        coupons = load_coupons(filename)
+
+        for node, data in graph.nodes(data=True):
+            for key, value in data.items():
+                if key == "desired_set" or key == "adopted_set":
+                    graph.nodes[node][key] = itemset[value] if value != None else None
+                elif key == "adopted_records":
+                    for i in range(0, len(value), 3):
+                        graph.nodes[node][key][i] = itemset[value[i]]
+
+                        c = None
+                        if value[i+1] != "":
+                            coupon_args = value[i+1].split(",")
+                            c = Coupon(
+                                        float(coupon_args[0]),
+                                        itemset[coupon_args[1]],
+                                        float(coupon_args[2]),
+                                        itemset[coupon_args[3]],
+                                        )
+
+                        graph.nodes[node][key][i+1] = c
+                        graph.nodes[node][key][i+2] = float(value[i+2])
+
+        return DiffusionModel(modelname, graph, itemset, coupons)
+                        
