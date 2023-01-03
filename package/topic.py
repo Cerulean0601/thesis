@@ -6,7 +6,7 @@ from gensim.corpora import dictionary
 import logging
 from csv import DictWriter, DictReader
 
-from utils import extractTokensWithID
+import utils
 
 class TopicModel():
     def __init__(self, number_topics, nodesTopic = {}, itemsTopic = {}):
@@ -22,7 +22,7 @@ class TopicModel():
             path = [directory.lower() for directory in path]
             datasetName = path[-2]
 
-            return extractTokensWithID(datasetName, file)
+            return utils.extractTokensWithID(datasetName, file)
         
         def _constructCorpus(nodes: list[list[str]], items: list[list[str]]):
             '''

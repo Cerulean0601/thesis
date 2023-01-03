@@ -1,20 +1,22 @@
 
-from model import DiffusionModel
+from itemset import ItemsetFlyweight
+from social_graph import SN_Graph
 from coupon import Coupon
 
-class algorithm:
-    def __init__(self, model:DiffusionModel):
-        self.model = model
+class Algorithm:
+    def __init__(self, graph:SN_Graph, itemset:ItemsetFlyweight):
+        self._graph = graph
+        self._itemset = itemset
 
-    def _generateCoupons(self, price_step:float ):
+    def greedy(self, price_step:float):
         '''
             Generates a set of all possible coupons.
         '''
         coupons = []
-        for threshold in range(min(self.model._itemset.PRICE), price_step):
-            for accNumbering, accItemset in self.model._itemset:
+        for threshold in range(min(self.itemset.PRICE), price_step):
+            for accNumbering, accItemset in self._itemset:
                 for discount in range(price_step):
-                    for disNumbering, disItemset in self.model._itemset:
+                    for disNumbering, disItemset in self._itemset:
                         coupons.append(Coupon(threshold, accNumbering, discount, disNumbering))
     
         return coupons

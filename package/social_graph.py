@@ -1,6 +1,7 @@
 import networkx as nx
 import queue
 import random
+import logging
 
 from topic import TopicModel
 
@@ -37,7 +38,10 @@ class SN_Graph(nx.DiGraph):
             topic (Topic)
         '''
         graph = SN_Graph(isDirected=isDirected)
+        logging.info("Constructing graph...")
+
         with open(edges_file, "r", encoding="utf8") as f:
+            logging.info("Connecting the edges...")
             for line in f:
                 nodes = line.split(",")
                 src = nodes[0]
@@ -47,6 +51,7 @@ class SN_Graph(nx.DiGraph):
                     graph.add_edge(src, det)
 
         with open(nodes_file, "r", encoding="utf8") as f:
+            logging.info("Adding the remaining nodes...")
             for line in f:
                 id, *context = line.split(",")
                 if id not in graph.nodes:

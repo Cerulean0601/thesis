@@ -5,6 +5,7 @@ import logging
 import re
 from networkx import NetworkXError, write_gml, read_gml, set_node_attributes
 from os.path import exists
+from multiprocessing.pool import ThreadPool
 import pandas as pd
 
 # custom package
@@ -24,10 +25,20 @@ class DiffusionModel():
         self._coupons = coupons
         self._user_proxy = UsersProxy(self._graph, self._itemset, self._coupons)
     
-    
-    def _randomTopic(self, T:int):
-        topic = [random() for i in range(T)]
-        return [topic[i]/sum(topic) for i in range(T)]
+    def getRevenue(self) -> list:
+
+        def getEachNodeRevenue(node):
+            records_len = len(node["adopted_records"])
+            acc = 0
+            for i in range(2, records_len, 3):
+                acc += node["adopted_records"][i]
+            
+            return acc
+
+        pool = ThreadPool()
+        result = pool.map(getEachNodeRevenue, self._graph.nodes)
+        pool.close()
+        return result
 
     def _selectSeeds(self, k:int) -> list:
         '''
