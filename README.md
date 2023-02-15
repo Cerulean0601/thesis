@@ -19,7 +19,7 @@
 - dblp.json: The file is dblp dataset which had been preprocessed.
 - dblpv13.json: Raw source dataset
 - edges: The row "u v" is the edge from u to v.
-- nodes: All of the node id in DBLP
+- nodes: All of nodes id in DBLP
 - sample{N}nodes_with_tokens.csv: Sampling N of the nodes with their own tokens
 - ~~topic_items.csv: topic of the papers~~ (deprecated)
 - token_nodes.csv: tokens of the nodes

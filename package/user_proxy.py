@@ -1,6 +1,7 @@
 import sys
 from itertools import combinations
 import logging
+from multiprocessing.pool import ThreadPool
 
 from social_graph import SN_Graph
 from itemset import ItemsetFlyweight, Itemset
@@ -13,6 +14,12 @@ class UsersProxy():
         self._graph = graph
         self._itemset = itemset
         self._coupons = coupons
+
+    def replaceGraph(self, newGraph:SN_Graph):
+        if not isinstance(newGraph, SN_Graph):
+            raise TypeError("Replaced graph is not SN_Graph class.\n")
+        
+        self._graph = newGraph
 
     def _VP_ratio(self, user_id, itemset, mainItemset = None, coupon = None):
         if coupon == None:
@@ -89,6 +96,7 @@ class UsersProxy():
 
         for length in range(len(desired_set.numbering)):
             for X in combinations(desired_set.numbering, length+1):
+                # the combination of iterator returns tuple type
                 X = set(X)
                 if self._itemset.issubset(adopted_set, X) and not adopted_set == X:
 
@@ -99,6 +107,7 @@ class UsersProxy():
                         maxVP_mainItemset = X
 
         if self._itemset[maxVP_mainItemset] == adopted_set:
+            logging.debug("User {0} had adopted all items.".format(user_id))
             return None
         
         return {"items": self._itemset[maxVP_mainItemset], "VP": max_VP} if maxVP_mainItemset != None else None
@@ -127,7 +136,7 @@ class UsersProxy():
 
         if dealItemset.price >= coupon.accThreshold:
             disItemset = self._itemset.intersection(dealItemset, coupon.disItemset)
-            dealDiscount = min(disItemset.price, coupon.discount)
+            dealDiscount = min(disItemset.price, coupon.discount) if disItemset != None else 0
             amount -= dealDiscount
 
 
@@ -140,26 +149,56 @@ class UsersProxy():
             Args:
                 mainItemset(Itemset): 第一購買階段決定的商品組合，此組合為考量的商品加上曾購買過的商品
         '''
-        max_VP = sys.float_info.min
-        maxDict = {"items": None, "VP": max_VP, "coupon": None}
+        
 
-        for key, itemset_instance in self._itemset:
-            # Find the itemset X which is a superset of main itemset
+        def parallelAdopt(args):
+            result = None
+            mainItemset, itemset_instance, coupon = args[0], args[1], args[2]
+
             if self._itemset.issuperset(itemset_instance, mainItemset):
-                for i in range(len(self._coupons)):
-                    # X 必須超過滿額門檻
-                    diff_adopted = self._itemset.difference(itemset_instance, self._graph.nodes[user_id]["adopted_set"])
-                    intersection = self._itemset.intersection(diff_adopted, self._coupons[i].accItemset)
+                # X 必須超過滿額門檻
+                diff_adopted = self._itemset.difference(itemset_instance, self._graph.nodes[user_id]["adopted_set"])
+                intersection = self._itemset.intersection(diff_adopted, coupon.accItemset)
+                
+                if intersection != None and intersection.price > coupon.accThreshold:
+                    VP = self._addtionallyAdoptVP(user_id, mainItemset, itemset_instance, coupon)
+                    logging.debug("User {0}, items {1}, VP_ratio {2}, Coupon {3}".format(user_id, itemset_instance, VP, coupon))
+                    result = {"items": itemset_instance, "VP": VP, "coupon": coupon}
+
+            return result
+
+        pool = ThreadPool()
+        params = []
+        for numbering, itemsetObj in self._itemset:
+            for coupon in self._coupons:
+                params.append([mainItemset, itemsetObj, coupon])
+            
+        resultList = pool.map(parallelAdopt, params)
+        pool.close()
+        maxVP = {"VP": sys.float_info.min}
+
+        for comp_result in resultList:
+            if comp_result != None and comp_result["VP"] > maxVP["VP"]:
+                maxVP = comp_result
+
+        return maxVP        
+        # for key, itemset_instance in self._itemset:
+        #     # Find the itemset X which is a superset of main itemset
+        #     if self._itemset.issuperset(itemset_instance, mainItemset):
+        #         for i in range(len(self._coupons)):
+        #             # X 必須超過滿額門檻
+        #             diff_adopted = self._itemset.difference(itemset_instance, self._graph.nodes[user_id]["adopted_set"])
+        #             intersection = self._itemset.intersection(diff_adopted, self._coupons[i].accItemset)
                     
-                    if intersection != None and intersection.price > self._coupons[i].accThreshold:
-                        VP = self._addtionallyAdoptVP(user_id, mainItemset, itemset_instance, self._coupons[i])
-                        logging.debug("User {0}, items {1}, VP_ratio {2}, Coupon {3}".format(user_id, itemset_instance, VP, self._coupons[i]))
+        #             if intersection != None and intersection.price > self._coupons[i].accThreshold:
+        #                 VP = self._addtionallyAdoptVP(user_id, mainItemset, itemset_instance, self._coupons[i])
+        #                 logging.debug("User {0}, items {1}, VP_ratio {2}, Coupon {3}".format(user_id, itemset_instance, VP, self._coupons[i]))
 
-                        if VP > max_VP:
-                            max_VP = VP
-                            maxDict = {"items": itemset_instance, "VP": max_VP, "coupon": self._coupons[i]}
+        #                 if VP > max_VP:
+        #                     max_VP = VP
+        #                     maxDict = {"items": itemset_instance, "VP": max_VP, "coupon": self._coupons[i]}
 
-        return maxDict
+        #return maxDict
     
     def _discount(self, itemset, coupon):
         '''
@@ -198,27 +237,29 @@ class UsersProxy():
         # main itemset should be check whether is empty
 
         if mainItemset == None:
-            logging.debug("user {0}'s main itemset is None.".format(user_id))
+            logging.info("user {0}'s main itemset is None.".format(user_id))
             return None
 
-        logging.debug("Adopt Addtional Itemset")
-        addtional = self._adoptAddtional(user_id, mainItemset["items"])
         trade = dict()
+        if self._coupons == None or len(self._coupons) == 0:
 
-        if mainItemset["VP"] > addtional["VP"]:
             trade["decision_items"] = mainItemset["items"]
             trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"])
             trade["amount"] = trade["tradeOff_items"].price
             trade["coupon"] = None
             logging.info("user {0} choose main itemset {1}.".format(user_id, mainItemset["items"]))
-            
         else:
-            trade["decision_items"] = addtional["items"]
-            trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"]) 
-            trade["amount"] = trade["tradeOff_items"].price - self._discount(trade["tradeOff_items"], addtional["coupon"])
-            trade["coupon"] = addtional["coupon"]
-            logging.info("user {0} choose addtional itemset {1} with coupon {2}.".format(user_id, mainItemset["items"], addtional["coupon"]))
-
+            logging.info("Adopt Addtional Itemset")
+            addtional = self._adoptAddtional(user_id, mainItemset["items"])
+            if mainItemset["VP"] < addtional["VP"]:
+                trade["decision_items"] = addtional["items"]
+                trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"]) 
+                trade["amount"] = trade["tradeOff_items"].price - self._discount(trade["tradeOff_items"], addtional["coupon"])
+                trade["coupon"] = addtional["coupon"]
+                logging.info("user {0} choose addtional itemset {1} with coupon {2}.".format(user_id, mainItemset["items"], addtional["coupon"]))
+            else:
+                logging.info("user {0} choose main itemset {1}.".format(user_id, mainItemset["items"]))
+           
         self._graph.nodes[user_id]["adopted_set"] = self._itemset.union(
                                 self._graph.nodes[user_id]["adopted_set"],
                                 trade["tradeOff_items"])

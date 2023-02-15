@@ -10,7 +10,7 @@ class SN_Graph(nx.DiGraph):
         Note: 邊的權重若預設為1/(v_indegree)，則(v,u)和(u,v)的權重並不相同，因此用有向圖替代無向圖
 
         Param:
-            isDirect (bool): Whether the orignal social network is direct. Default is False.
+            located (bool): Whether the orignal social network is direct. Default is False.
 
         Attribute of Node:
             desired_set(string, Itemset)
@@ -22,13 +22,23 @@ class SN_Graph(nx.DiGraph):
             is_tested(bool):
             weight(float): 1/in_degree(u)
     '''
-    def __init__(self, node_topic:TopicModel|dict = None, isDirected=False) -> None:
+    def __init__(self, node_topic:TopicModel|dict = None, located=True) -> None:
         super().__init__()
-        self.isDirected = isDirected
+        self.located = located # 原圖是否為無向圖
         self.topic = node_topic
 
+    def __add__(self, another_G):
+        '''
+            It is a composed operation.If a edge or a node exists in both of the graphs, the second one will overwrite the first.
+            The addtion of the two graphs can be used before the diffusion.
+        '''
+        compose = nx.compose(self, another_G)
+        compose._initAllEdges()
+
+        return compose
+
     @staticmethod
-    def construct(nodes_file, edges_file, node_topic:TopicModel|dict, isDirected=False) -> None:
+    def construct(nodes_file, edges_file, node_topic:TopicModel|dict, located=True) -> None:
         '''
           從edge的資料檔案建立點, 邊, 權重
 
@@ -37,30 +47,38 @@ class SN_Graph(nx.DiGraph):
             nodes_file (string): 包含topic的節點資料路徑
             topic (Topic)
         '''
-        graph = SN_Graph(isDirected=isDirected)
+        graph = SN_Graph(located=located)
         logging.info("Constructing graph...")
 
         with open(edges_file, "r", encoding="utf8") as f:
             logging.info("Connecting the edges...")
+            edges = []
             for line in f:
                 nodes = line.split(",")
                 src = nodes[0]
                 det = nodes[1] if nodes[1][-1] != "\n" else nodes[1][:-1]
 
                 if src in node_topic and det in node_topic:
-                    graph.add_edge(src, det)
+                    edges.append((src, det))
+                    if located:
+                        edges.append((det, src))
+
+            graph.add_edges_from(edges)
+            del edges
 
         with open(nodes_file, "r", encoding="utf8") as f:
             logging.info("Adding the remaining nodes...")
+            nodes = []
             for line in f:
                 id, *context = line.split(",")
-                if id not in graph.nodes:
-                    graph.add_node(id)
+                nodes.append(id)
+            graph.add_nodes_from(nodes)
+            del nodes
 
         graph.initAttr()
         return graph
         
-    def _bfs_sampling(self, k_nodes):
+    def _bfs_sampling(self, k_nodes:int = None):
 
         if len(list(self.nodes)) == 0:
             raise Exception("The number of nodes in the original graph is zero.")
@@ -74,32 +92,51 @@ class SN_Graph(nx.DiGraph):
 
         root = max_degree(self)
 
-        subgraph = nx.DiGraph()
+        subgraph = SN_Graph(self.topic, self.convertDirected())
         q = queue.Queue()
         q.put(root)
 
         # bfs
-        while not q.empty() and len(subgraph) <= k_nodes:
+        while not q.empty():
+            if k_nodes != None and len(subgraph) <= k_nodes:
+                break
+
             node = q.get()
             for out_neighbor, attr in self.adj[node].items():
-                if out_neighbor not in subgraph and random.random() < attr["weight"]:
-                    subgraph.add_edge(
-                    node, 
-                    out_neighbor, 
-                    weight = attr["weight"])
-                    
-                    subgraph.add_edge(
-                      out_neighbor, 
-                      node, 
-                      weight = self.get_edge_data(out_neighbor, node, "weight"))
+                if random.random() < attr["weight"]:
+                    subgraph.add_edge(node, out_neighbor)
                     q.put(out_neighbor)
 
-            q.task_done()
-
+        q.task_done()
+        subgraph.initAttr()
         return subgraph
       
-    def sampling_subgraph(self, k_nodes, strategy="bfs") -> nx.DiGraph:
-        return self._bfs_sampling(k_nodes)
+    def sampling_subgraph(self, num_iter:int = 1, k_nodes:int = None, strategy="bfs"):
+        subgraph = SN_Graph(self.topic, located=self.convertDirected())
+        for i in range(num_iter):
+            subgraph += self._bfs_sampling(k_nodes)
+        return subgraph
+
+    @staticmethod
+    def transform(G, nodeTopic=None):
+        '''
+            Transform nx.Graph or nx.DiGraph to SN_Graph
+        '''
+
+        located = not G.is_directed()
+        
+        SN_G = SN_Graph(nodeTopic, located=located)
+        for src, det in G.edges:
+            src, det = str(src), str(det)
+            SN_G.add_edge(src, det)
+
+        for node in G.nodes:
+            if node not in SN_G.nodes:
+                SN_G.add_node(str(node))
+
+        SN_G.initAttr()
+
+        return SN_G
 
     def top_k_nodes(self, k: int) -> list:
         '''
@@ -133,30 +170,42 @@ class SN_Graph(nx.DiGraph):
         return topNodes
     
     def convertDirected(self):
-        return self.isDirected
+        return self.located
 
     def add_edge(self, src, det, **attr):
-        if not self.convertDirected():
+        if self.convertDirected():
             super().add_edge(det, src, **attr)
         
         super().add_edge(src, det, **attr)
-        # Because of calculation of the weight of the edges, it should update all the edges.
-        self._initAllEdge()
-        self._initNode(src)
-        self._initNode(det)
+
+        self._update_in_edge(src)
+        self._update_in_edge(det)
+
+        if src not in self.nodes:
+            self._initNode(src)
+        
+        if det not in self.nodes:
+            self._initNode(det)
         
     def add_node(self, node_for_adding, **attr):
         super().add_node(node_for_adding, **attr)
         self._initNode(node_for_adding, **attr)
 
+    def _weightingEdge(self, src, det):
+        return 1/self.in_degree(det)
+
+    def _update_in_edge(self, node):
+        for src, det in self.in_edges(node):
+            self._weightingEdge(src,det)
+
     def _initEdge(self, src, det, **attr):
-        self.edges[src, det]["weight"] = 1/self.in_degree(det)
+        self.edges[src, det]["weight"] = self._weightingEdge(src, det)
         self.edges[src, det]["is_tested"] = False
 
         for key, value in attr.items():
             self.edges[src, det][key] = value
 
-    def _initAllEdge(self):
+    def _initAllEdges(self):
         for src, det in list(self.edges):
             self._initEdge(src, det)
     
@@ -170,10 +219,10 @@ class SN_Graph(nx.DiGraph):
         for key, value in attr.items():
             self.nodes[id][key] = value
             
-    def _initAllNode(self):
+    def _initAllNodes(self):
         for node in list(self.nodes):
             self._initNode(node)
 
     def initAttr(self):
-        self._initAllEdge()
-        self._initAllNode()
+        self._initAllEdges()
+        self._initAllNodes()

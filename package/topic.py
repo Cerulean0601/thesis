@@ -4,7 +4,7 @@ import nltk
 from gensim.models import LdaMulticore
 from gensim.corpora import dictionary
 import logging
-from csv import DictWriter, DictReader
+from random import random
 
 import utils
 
@@ -68,7 +68,14 @@ class TopicModel():
     
     def getNodesTopic(self) -> dict:
         return self._mappingNode
-        
+    
+    def randomTopic(self) -> list:
+        topic = [random() for t in range(self.number_topics)]
+        norm = sum(topic)
+        normTopic = [t/norm for t in topic]
+        return normTopic 
+
+
     def save(self, path = "D:\\論文實驗\\data\\topic\\"):
         def saveToFile(filename, _mapping):
             with open(filename, "w" ,encoding="utf8") as f:

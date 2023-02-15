@@ -273,6 +273,38 @@ class ItemsetFlyweight():
 
         return a_set.issuperset(b_set)
         
-
-
+    def maxTopicValue(self, userTopic):
         
+        maxValue = 0
+        maxObj = None
+
+        for id, obj in self.__iter__():
+
+            value = 0
+            for t in range(len(userTopic)):
+                value += obj.topic[t]*userTopic[t]
+
+            #print("{0}: {1}".format(id, value))
+            if value > maxValue:
+                maxValue, maxObj = value, obj
+
+        #print("max {0}: {1}".format(str(maxObj), maxValue))
+        return maxObj
+
+    def maxSupersetValue(self, userTopic, mainItemset):
+        
+        maxValue = 0
+        maxObj = None
+
+        for id, obj in self.__iter__():
+            if self.issuperset(obj, mainItemset):
+                value = 0
+                for t in range(len(userTopic)):
+                    value += obj.topic[t]*userTopic[t]
+
+                #print("{0}: {1}".format(id, value))
+                if value > maxValue:
+                    maxValue, maxObj = value, obj
+
+        #print("max {0}: {1}".format(str(maxObj), maxValue))
+        return maxObj

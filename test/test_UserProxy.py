@@ -72,4 +72,16 @@ class TestUserProxy(unittest.TestCase):
         result = self._user_proxy._adoptAddtional("over_threshold", mainItemset["items"])
         self.assertEqual(result["items"], self._itemset["0 2"])
 
-      # 交易金額等於折扣金額
+        #-------------------------------------------------------
+        self._graph.add_node("addtionally_adopted", adopted_set=self._itemset["0"], desired_set=self._itemset["0 1 2"], topic=[0.2, 0.8])
+        
+        origin_topic = self._itemset["0 1 2"]
+        self._itemset["0 1 2"].topic = [0.1, 0.9]
+
+        self._coupons.extend([Coupon(80, ["0","1","2"], 310, ["0", "1", "2"]),])
+        result = self._user_proxy.adopt("addtionally_adopted")
+        self.assertEqual(result["decision_items"], self._itemset["0 1 2"])
+        self.assertEqual(result["tradeOff_items"], self._itemset["1 2"])
+
+        self._itemset["0 1 2"].topic = origin_topic
+        # 交易金額等於折扣金額

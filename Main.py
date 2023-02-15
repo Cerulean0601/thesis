@@ -18,34 +18,41 @@ import logging
 logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
 sys.path.append('D:\\論文實驗\\package')
 
-from package.model import DiffusionModel
-from package.topic import TopicModel
-from package.social_graph import SN_Graph
-from package.itemset import ItemsetFlyweight, ItemRelation
-from package.coupon import Coupon
-from package.utils import getItemsPrice
-
+from model import DiffusionModel
+from topic import TopicModel
+from social_graph import SN_Graph
+from itemset import ItemsetFlyweight, ItemRelation
+from coupon import Coupon
+from utils import getItemsPrice
+from algorithm import Algorithm
 # hyper param
 NUM_TOPICS = 5
 if __name__ == '__main__':
     
     # test()
-    
-    # # topicModel = TopicModel(NUM_TOPICS)
-    # # topicModel.construct(DBLP_PATH + "\\topic_nodes.csv", AMAZON_PATH + "\\preprocessed_Sortware.csv")
-    # # topicModel.save()
-    # topicModel = TopicModel.load(NUM_TOPICS)
+    NODE_TOKEN_FILE = os.path.join(DBLP_PATH, "token_nodes.csv")
+    NODE_FILE, EDGE_FILE = os.path.join(DBLP_PATH, "nodes"), os.path.join(DBLP_PATH, "edges")
+    ITME_FILE = os.path.join(AMAZON_PATH, "preprocessed_Software.csv")
 
-    # graph = SN_Graph()
-    # graph.construct(DBLP_PATH + "\\edges", DBLP_PATH + "\\nodes", topicModel.getNodesTopic())
+    # topicModel = TopicModel(NUM_TOPICS)
+    # topicModel.construct(NODE_TOKEN_FILE, ITME_FILE)
+    # topicModel.save()
+    topicModel = TopicModel.load(NUM_TOPICS)
 
-    # prices = getItemsPrice(AMAZON_PATH + "\\preprocessed_Software.csv")
-    # itemset = ItemsetFlyweight(prices, topicModel.getItemsTopic())
+    graph = SN_Graph()
+    graph.construct(NODE_FILE, EDGE_FILE, topicModel.getNodesTopic())
 
-    # coupons = [Coupon(20, "0763855553", 10, "0763855553")]
-    # model = DiffusionModel("dblp_amazon", graph, itemset, coupons)
-    # model.diffusion()
-    # model.save()
-
+    prices = getItemsPrice(ITME_FILE)
     relation = ItemRelation()
-    relation.construct(r"D:\\論文實驗\data\\amazon\\test.csv")
+    relation.construct(ITME_FILE)
+    itemset = ItemsetFlyweight(prices, topicModel.getItemsTopic(), relation)
+
+    alog = Algorithm(graph, itemset)
+    coupons = alog.greedy(5)
+    model = DiffusionModel("dblp_amazon", graph, itemset, coupons)
+    model.diffusion()
+    model.save()
+
+    
+    
+
