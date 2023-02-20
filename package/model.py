@@ -48,16 +48,19 @@ class DiffusionModel():
     def getGraph(self):
         return self._graph
 
-    def replaceGraph(self, newGraph:SN_Graph):
+    def setGraph(self, newGraph:SN_Graph):
         if not isinstance(newGraph, SN_Graph):
             raise TypeError("Replaced graph is not SN_Graph class.\n")
         
-        self._user_proxy.replaceGraph(newGraph)
+        self._user_proxy.setGraph(newGraph)
         self._graph = newGraph
         
     def getItemsetHandler(self):
         return self._itemset
 
+    def getUserProxy(self):
+        return self._user_proxy
+    
     def setCoupons(self, coupons):
         self._coupons = coupons
 
@@ -117,7 +120,7 @@ class DiffusionModel():
             # list of the seeds is sorted by out-degree.
             self._selectSeeds(k)
         
-        if self._graph.nodes[self._seeds[0][0]]["desired_set"] == None:
+        if self._graph.nodes[self._seeds[0]]["desired_set"] == None:
             # List of single items.
             items = [self._itemset[id] for id in list(self._itemset.PRICE.keys())]
 

@@ -1,8 +1,9 @@
 import os
 import unittest
 import networkx as nx
+import sys
 
-# const.
+# CONSTANT
 DATA_ROOT = os.path.join("D:" + os.sep, "論文實驗", "data")
 DBLP_PATH = os.path.join(DATA_ROOT, "dblp")
 AMAZON_PATH = os.path.join(DATA_ROOT, "amazon")
@@ -46,7 +47,7 @@ TOPICS = {
 PRICES = {
     "iPhone": 260,
     "AirPod": 60,
-    "Galaxy": 200,
+    "Galaxy": 500,
 }
 RELATION = pd.DataFrame.from_dict({
             "iPhone":{
@@ -67,18 +68,24 @@ RELATION = pd.DataFrame.from_dict({
 if __name__ == '__main__':
         
     test()
-    
+
     topicModel = TopicModel(NUM_TOPICS, TOPICS["Node"], TOPICS["Item"])
 
-    # graph = SN_Graph(TOPICS["Node"])
-    # graph.add_edge("0", "1")
-    # graph.add_edge("0", "2")
+    graph = SN_Graph(TOPICS["Node"])
+    graph.add_edge("0", "1")
+    graph.add_edge("0", "2")
 
-    graph = SN_Graph.transform(nx.diamond_graph(), TOPICS["Node"])
+    randomGraph = nx.karate_club_graph()
+    
+    nodeTopic = dict()
+    for node in randomGraph:
+        nodeTopic[node] = topicModel.randomTopic()
 
+    graph = SN_Graph.transform(randomGraph, nodeTopic)
     
     relation = ItemRelation(RELATION)
     itemset = ItemsetFlyweight(PRICES, topicModel.getItemsTopic(), relation)
+    
     items = [itemset[id] for id in list(itemset.PRICE.keys())]
 
     model = DiffusionModel("dblp_amazon", graph, itemset)
@@ -86,8 +93,12 @@ if __name__ == '__main__':
     model.allocate(model._seeds, items)
     
     algo = Algorithm(model)
-    tagger = algo._preporcessing()
-    print(tagger._next.table)
-    print(tagger._next._next.table)
+    appending = {'Galaxy': 1, 'Galaxy iPhone': 1, 'AirPod iPhone': 3}
+    for c in algo.genSelfCoupon():
+        print(c)
+    # tagger = algo._preporcessing()
+    # print(tagger._next.table)
+    # print(tagger._next._next.table)
+
     # model.diffusion()
 

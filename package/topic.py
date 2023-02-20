@@ -73,6 +73,7 @@ class TopicModel():
         topic = [random() for t in range(self.number_topics)]
         norm = sum(topic)
         normTopic = [t/norm for t in topic]
+        
         return normTopic 
 
 

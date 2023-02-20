@@ -78,27 +78,29 @@ class SN_Graph(nx.DiGraph):
         graph.initAttr()
         return graph
         
-    def _bfs_sampling(self, k_nodes:int = None):
+    def _bfs_sampling(self, num_nodes:int = None, root:list = []):
 
         if len(list(self.nodes)) == 0:
             raise Exception("The number of nodes in the original graph is zero.")
 
-        def max_degree(self):
+        def max_degree(out_degree):
             pair = (None, 0)
-            for node, degree in list(self.out_degree):
+            for node, degree in list(out_degree):
                 if pair[1] <= degree:
                     pair = (node, degree)
             return pair[0]
 
-        root = max_degree(self)
+        if len(root) == 0:
+            root.append(max_degree(self.out_degree))
 
         subgraph = SN_Graph(self.topic, self.convertDirected())
         q = queue.Queue()
-        q.put(root)
+        for node in root:
+            q.put(node)
 
         # bfs
         while not q.empty():
-            if k_nodes != None and len(subgraph) <= k_nodes:
+            if num_nodes != None and len(subgraph) <= num_nodes:
                 break
 
             node = q.get()
@@ -111,10 +113,10 @@ class SN_Graph(nx.DiGraph):
         subgraph.initAttr()
         return subgraph
       
-    def sampling_subgraph(self, num_iter:int = 1, k_nodes:int = None, strategy="bfs"):
+    def sampling_subgraph(self, num_iter:int = 1, num_nodes:int = None, strategy="bfs"):
         subgraph = SN_Graph(self.topic, located=self.convertDirected())
         for i in range(num_iter):
-            subgraph += self._bfs_sampling(k_nodes)
+            subgraph += self._bfs_sampling(num_nodes)
         return subgraph
 
     @staticmethod
@@ -127,12 +129,12 @@ class SN_Graph(nx.DiGraph):
         
         SN_G = SN_Graph(nodeTopic, located=located)
         for src, det in G.edges:
-            src, det = str(src), str(det)
+            src, det = src, det
             SN_G.add_edge(src, det)
 
         for node in G.nodes:
             if node not in SN_G.nodes:
-                SN_G.add_node(str(node))
+                SN_G.add_node(node)
 
         SN_G.initAttr()
 
@@ -157,9 +159,8 @@ class SN_Graph(nx.DiGraph):
                         break
             
         topNodes = []
-        nodes_degree = list(self.out_degree)
 
-        for pair in nodes_degree:
+        for pair in self.out_degree:
 
             if len(topNodes) < k:
                 insert(topNodes, pair)

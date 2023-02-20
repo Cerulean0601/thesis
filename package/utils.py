@@ -52,3 +52,9 @@ def getItemsPrice(filename) -> list:
             id, *context, price = line.split(",")
             prices[id] = float(price[:-1])
     return prices
+
+def dot(a:list, b:list):
+    if len(a) != len(b):
+        raise ValueError("The length of two topics must match")
+    
+    return sum(i[0]*i[1] for i in zip(a, b))

@@ -15,11 +15,14 @@ class UsersProxy():
         self._itemset = itemset
         self._coupons = coupons
 
-    def replaceGraph(self, newGraph:SN_Graph):
+    def setGraph(self, newGraph:SN_Graph):
         if not isinstance(newGraph, SN_Graph):
             raise TypeError("Replaced graph is not SN_Graph class.\n")
         
         self._graph = newGraph
+    
+    def replaceCoupons(self, coupons):
+        self._coupons = coupons
 
     def _VP_ratio(self, user_id, itemset, mainItemset = None, coupon = None):
         if coupon == None:

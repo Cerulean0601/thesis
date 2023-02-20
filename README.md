@@ -13,6 +13,7 @@
 
 # Note
 - The structure of the directory should be "./dataset_name/raw_data"
+- 演算法評估每個群的主商品及附加品時，可能會出現None的情況，目前先暫時刪除key=None的值。
 
 # DBLP
 ## File

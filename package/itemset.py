@@ -185,10 +185,8 @@ class ItemsetFlyweight():
     def __iter__(self):
         numbering_of_items = list(self.PRICE.keys())
 
-        for size_itemset in range(self.size):
-            for combination in combinations(numbering_of_items, size_itemset + 1):
-                itemset = self.__getitem__(combination)
-                yield str(itemset), itemset
+        for numbering, obj in self.powerSet(numbering_of_items):
+            yield numbering, obj
 
 
     def _aggregateTopic(self, collection):
@@ -272,6 +270,15 @@ class ItemsetFlyweight():
         b_set = ItemsetFlyweight._toSet(b)
 
         return a_set.issuperset(b_set)
+    
+    def powerSet(self, items) -> iter:
+        '''
+            Exclude empty itemset
+        '''
+        for size_itemset in range(len(items)):
+            for combination in combinations(ItemsetFlyweight._toSet(items), size_itemset + 1):
+                itemset = self.__getitem__(combination)
+                yield str(itemset), itemset
         
     def maxTopicValue(self, userTopic):
         
@@ -308,3 +315,6 @@ class ItemsetFlyweight():
 
         #print("max {0}: {1}".format(str(maxObj), maxValue))
         return maxObj
+
+    def sortByPrice(self, arr, reverse=False):
+        return sorted(arr, key=lambda x: self.__getitem__(x).price, reverse=reverse)
