@@ -78,7 +78,7 @@ class SN_Graph(nx.DiGraph):
         graph.initAttr()
         return graph
         
-    def _bfs_sampling(self, num_nodes:int = None, root:list = []):
+    def _bfs_sampling(self, num_nodes:int = None, roots:list = []):
 
         if len(list(self.nodes)) == 0:
             raise Exception("The number of nodes in the original graph is zero.")
@@ -90,12 +90,12 @@ class SN_Graph(nx.DiGraph):
                     pair = (node, degree)
             return pair[0]
 
-        if len(root) == 0:
-            root.append(max_degree(self.out_degree))
+        if len(roots) == 0:
+            roots.append(max_degree(self.out_degree))
 
         subgraph = SN_Graph(self.topic, self.convertDirected())
         q = queue.Queue()
-        for node in root:
+        for node in roots:
             q.put(node)
 
         # bfs
@@ -105,7 +105,8 @@ class SN_Graph(nx.DiGraph):
 
             node = q.get()
             for out_neighbor, attr in self.adj[node].items():
-                if random.random() < attr["weight"]:
+                if random.random() < attr["weight"] and "is_sample" not in attr:
+                    self.edges[node, out_neighbor]["is_sample"] = True
                     subgraph.add_edge(node, out_neighbor)
                     q.put(out_neighbor)
 
@@ -113,10 +114,10 @@ class SN_Graph(nx.DiGraph):
         subgraph.initAttr()
         return subgraph
       
-    def sampling_subgraph(self, num_iter:int = 1, num_nodes:int = None, strategy="bfs"):
+    def sampling_subgraph(self, num_iter:int = 1, num_nodes:int = None, roots:list = [], strategy="bfs"):
         subgraph = SN_Graph(self.topic, located=self.convertDirected())
         for i in range(num_iter):
-            subgraph += self._bfs_sampling(num_nodes)
+            subgraph += self._bfs_sampling(num_nodes, roots)
         return subgraph
 
     @staticmethod
@@ -174,6 +175,12 @@ class SN_Graph(nx.DiGraph):
         return self.located
 
     def add_edge(self, src, det, **attr):
+        if src not in self.nodes:
+            self.add_node(src)
+        
+        if det not in self.nodes:
+            self.add_node(det)
+        
         if self.convertDirected():
             super().add_edge(det, src, **attr)
         
@@ -182,12 +189,7 @@ class SN_Graph(nx.DiGraph):
         self._update_in_edge(src)
         self._update_in_edge(det)
 
-        if src not in self.nodes:
-            self._initNode(src)
-        
-        if det not in self.nodes:
-            self._initNode(det)
-        
+
     def add_node(self, node_for_adding, **attr):
         super().add_node(node_for_adding, **attr)
         self._initNode(node_for_adding, **attr)

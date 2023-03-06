@@ -7,10 +7,12 @@ import pandas as pd
 import logging
 import heapq
 from multiprocessing.pool import ThreadPool
+import multiprocessing
 
 from tag import *
 from itemset import Itemset
 from utils import dot
+from model import DiffusionModel
 
 class Algorithm:
     def __init__(self, model):
@@ -30,7 +32,7 @@ class Algorithm:
 
         for threshold in range(min_amount, limit_amout, price_step):
             for accNumbering, accItemset in self._itemset:
-                for discount in range(0 ,limit_amout, price_step):
+                for discount in range(1 ,limit_amout, price_step):
                     for disNumbering, disItemset in self._itemset:
                         coupons.append(Coupon(threshold, accItemset, discount, disItemset))
     
@@ -38,17 +40,19 @@ class Algorithm:
 
     def _preporcessing(self):
         numSampling = 5
-        subgraph = self._graph.sampling_subgraph(numSampling)
-        #origin = self._model.getGraph()
-        self._model.setGraph(subgraph)
-        self._shortestPath(self._model.getSeeds())
-        self._grouping()
+        subgraph = self._graph.sampling_subgraph(numSampling, roots=self._model.getSeeds())
+
+        sub_model = DiffusionModel("Subgraph", subgraph, self._model.getItemsetHandler())
+        sub_model._seeds = self._model.getSeeds()
+        sub_model.allocate(sub_model._seeds, [self._itemset[id] for id in list(self._itemset.PRICE.keys())])
+        self._shortestPath(sub_model.getSeeds())
+        self._grouping(sub_model)
 
         tagger = Tagger()
         tagger.setParams(belonging=self._belonging, expectedProbability=self._expected)
         tagger.setNext(TagMainItemset())
-        tagger.setNext(TagAppending(self._model.getItemsetHandler()))
-        self._model.diffusion(tagger)
+        tagger.setNext(TagAppending(sub_model.getItemsetHandler()))
+        sub_model.diffusion(tagger)
 
         return tagger
     
@@ -58,8 +62,8 @@ class Algorithm:
             self._expected[seed] = shortest_path_length(self._graph, source=seed, weight="weight")
             self._expected[seed][seed] = 1
 
-    def _grouping(self):
-        seeds = self._model.getSeeds()
+    def _grouping(self, model):
+        seeds = model.getSeeds()
         if not self._expected:
             self._shortestPath(seeds)
 
@@ -177,3 +181,51 @@ class Algorithm:
                         coupons.append(Coupon(accThreshold, accItemset, discount, disItemset))
         
         return coupons
+    
+    def simulation(self, candidatedCoupons):
+        def parallel(coupons):
+            model = DiffusionModel("", self._model.getGraph(), self._model.getItemsetHandler(), coupons)
+            tag = TagRevenue()
+            model.diffusion(tag)
+
+            return tag.amount()
+
+        if len(candidatedCoupons) == 0:
+            return candidatedCoupons
+        
+        revenue = 0
+        coupons = [[c] for c in candidatedCoupons]
+        output = []
+        while len(candidatedCoupons) != 0:
+            '''
+                1. Simulate with all candidated coupon
+                2. Get the coupon which can maximize revenue, and delete it from the candidatings
+                3. Concatenate all of the candidateings with the maximize revenue coupon
+            '''
+
+            pool = ThreadPool()
+            result = pool.map(parallel, coupons)
+            pool.close()
+            pool.join()
+
+            maxMargin = 0
+            maxIndex = 0
+
+            # find the maximum margin benfit of coupon
+            for i in range(len(result)):
+                if result[i]> maxMargin:
+                    maxMargin = result[i]
+                    maxIndex = i
+               
+            # if these coupons are more benfit than current coupons, add it and update 
+            if maxMargin > revenue:
+                revenue = maxMargin
+                output = coupons[maxIndex]
+                del candidatedCoupons[maxIndex]
+                coupons = [coupons[maxIndex] + [c] for c in candidatedCoupons]
+                
+            else:
+                break
+        
+        print(revenue)
+        return output

@@ -64,7 +64,7 @@ class DiffusionModel():
     def setCoupons(self, coupons):
         self._coupons = coupons
 
-    def _selectSeeds(self, k:int) -> list:
+    def selectSeeds(self, k:int) -> list:
         '''
             Return:
                 list: an ordered list of nodes which is sorted by degrees
@@ -118,7 +118,7 @@ class DiffusionModel():
             k = min(self._itemset.size, self._graph.number_of_nodes())
 
             # list of the seeds is sorted by out-degree.
-            self._selectSeeds(k)
+            self.selectSeeds(k)
         
         if self._graph.nodes[self._seeds[0]]["desired_set"] == None:
             # List of single items.
@@ -152,14 +152,15 @@ class DiffusionModel():
                 }
             '''
             
-            if trade["coupon"] is None or len(trade["coupon"]) == 0:
+            if trade["coupon"] is None:
                 trade["mainItemset"] = trade["decision_items"]
             logging.debug("Parameters of tagger------------------------------ ")
             for k, v in trade.items():
                 logging.debug("{0}: {1}".format(k, v))
             logging.debug("--------------------------------")
 
-            tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id])
+            if tagger != None:
+                tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id])
             logging.info("user {0} traded {1}".format(node_id, trade["tradeOff_items"]))
             
             is_activated = False
@@ -170,135 +171,134 @@ class DiffusionModel():
                     logging.debug("{0}'s desired_set: {1}".format(out_neighbor, self._graph.nodes[out_neighbor]["desired_set"]))
                     propagatedQueue.put(out_neighbor)
                     
-    def save(self, dir_path):
+    # def save(self, dir_path):
 
-        filename = dir_path + self.name
+    #     filename = dir_path + self.name
         
-        def save_graph(G, filename):
-            def  stringizer(value):
-                if isinstance(value, (Itemset, Coupon)):
-                    return str(value)
-                elif value == None:
-                    return ""
+    #     def save_graph(G, filename):
+    #         def  stringizer(value):
+    #             if isinstance(value, (Itemset, Coupon)):
+    #                 return str(value)
+    #             elif value == None:
+    #                 return ""
 
-                return value
+    #             return value
             
-            write_gml(G, filename + ".graph", stringizer)
+    #         write_gml(G, filename + ".graph", stringizer)
 
-        def save_items(itemset: ItemsetFlyweight, filename):
-            '''
-                The first column is the asin of items, then price and the others are topics.
-            '''
-            with open(filename + ".items", 'w', encoding="utf8", newline="") as f:
-                f.write("number {0}\n".format(len(itemset.PRICE)))
-                f.write("asin,price,topic1,topic2,...\n")
-                asinList = list(itemset.PRICE.keys())
-                for asin in asinList:
-                    f.write(asin + "," + str(itemset.PRICE[asin]) + ",")
-                    for topic in itemset.TOPIC[asin]:
-                        f.write(str(topic) + ",")
-                    f.write("\n")
+    #     def save_items(itemset: ItemsetFlyweight, filename):
+    #         '''
+    #             The first column is the asin of items, then price and the others are topics.
+    #         '''
+    #         with open(filename + ".items", 'w', encoding="utf8", newline="") as f:
+    #             f.write("number {0}\n".format(len(itemset.PRICE)))
+    #             f.write("asin,price,topic1,topic2,...\n")
+    #             asinList = list(itemset.PRICE.keys())
+    #             for asin in asinList:
+    #                 f.write(asin + "," + str(itemset.PRICE[asin]) + ",")
+    #                 for topic in itemset.TOPIC[asin]:
+    #                     f.write(str(topic) + ",")
+    #                 f.write("\n")
 
-                # save the relation of all items
-                for x in asinList:
-                    for y in asinList:
-                        f.write(str(itemset._relation[x][y]))
-                        f.write(" ")
-                    f.write("\n")
+    #             save the relation of all items
+    #             for x in asinList:
+    #                 for y in asinList:
+    #                     f.write(str(itemset._relation[x][y]))
+    #                     f.write(" ")
+    #                 f.write("\n")
 
-        def save_coupons(coupons, filename):
-            with open(filename + ".coupons", "w", encoding="utf8") as f:
-                for coupon in coupons:
-                    f.write(str(coupon))
+    #     def save_coupons(coupons, filename):
+    #         with open(filename + ".coupons", "w", encoding="utf8") as f:
+    #             for coupon in coupons:
+    #                 f.write(str(coupon))
         
-        save_graph(self._graph, filename)
-        save_items(self._itemset, filename)
-        save_coupons(self._coupons, filename)
+    #     save_graph(self._graph, filename)
+    #     save_items(self._itemset, filename)
+    #     save_coupons(self._coupons, filename)
         
-    @staticmethod
-    def load(modelname, path):
+    # @staticmethod
+    # def load(modelname, path):
         
-        def load_graph(filename):
-            sn_graph = SN_Graph()
-            graph = read_gml(filename + ".graph")
+    #     def load_graph(filename):
+    #         sn_graph = SN_Graph()
+    #         graph = read_gml(filename + ".graph")
 
-            for src, det, data in graph.edges(data=True):
-                sn_graph.add_edge(src, det, **data)
+    #         for src, det, data in graph.edges(data=True):
+    #             sn_graph.add_edge(src, det, **data)
             
-            for node, data in graph.nodes(data=True):
-                if node not in sn_graph:
-                    sn_graph.add_node(node, **data)
-                else:
-                    set_node_attributes(sn_graph, {node:data})
+    #         for node, data in graph.nodes(data=True):
+    #             if node not in sn_graph:
+    #                 sn_graph.add_node(node, **data)
+    #             else:
+    #                 set_node_attributes(sn_graph, {node:data})
                     
-            return sn_graph
+    #         return sn_graph
 
-        def load_items(filename):
+    #     def load_items(filename):
                     
-            prices = dict()
-            topics = dict()
-            relation = dict()
-            asinList = list()
-            with open(filename + ".items", "r") as f:
-                number = f.readline().split(" ")[1]
-                header = f.readline()
-                for i in range(int(number)):
-                    line = f.readline()
-                    asin, price, *topic = line.split(",")
-                    asinList.append(asin)
-                    prices[asin] = float(price)
-                    topics[asin] = [float(t) for t in topic[:-1]] # exclude new line
+    #         prices = dict()
+    #         topics = dict()
+    #         relation = dict()
+    #         asinList = list()
+    #         with open(filename + ".items", "r") as f:
+    #             number = f.readline().split(" ")[1]
+    #             header = f.readline()
+    #             for i in range(int(number)):
+    #                 line = f.readline()
+    #                 asin, price, *topic = line.split(",")
+    #                 asinList.append(asin)
+    #                 prices[asin] = float(price)
+    #                 topics[asin] = [float(t) for t in topic[:-1]] # exclude new line
 
-                for x in asinList:
-                    if x not in relation:
-                        relation[x] = dict()
+    #             for x in asinList:
+    #                 if x not in relation:
+    #                     relation[x] = dict()
 
-                    line = f.readline().split(" ")
-                    for j in range(int(number)):
-                        y = asinList[j]
-                        relation[x][y] = float(line[j])
+    #                 line = f.readline().split(" ")
+    #                 for j in range(int(number)):
+    #                     y = asinList[j]
+    #                     relation[x][y] = float(line[j])
 
-            return ItemsetFlyweight(prices, topics, pd.DataFrame.from_dict(relation))
+    #         return ItemsetFlyweight(prices, topics, pd.DataFrame.from_dict(relation))
 
-        def load_coupons(filename):
-            coupons = []
-            with open(filename + ".coupons", "r") as f:
-                for line in f:
-                    attr = line.split(",")
-                    coupons.append(Coupon(
-                                    float(attr[0]),
-                                    attr[1], 
-                                    float(attr[2]),
-                                    attr[3])
-                                )
+    #     def load_coupons(filename):
+    #         coupons = []
+    #         with open(filename + ".coupons", "r") as f:
+    #             for line in f:
+    #                 attr = line.split(",")
+    #                 coupons.append(Coupon(
+    #                                 float(attr[0]),
+    #                                 attr[1], 
+    #                                 float(attr[2]),
+    #                                 attr[3])
+    #                             )
             
-            return coupons
+    #         return coupons
 
-        filename = path + modelname
-        graph = load_graph(filename)
-        itemset = load_items(filename)
-        coupons = load_coupons(filename)
+    #     filename = path + modelname
+    #     graph = load_graph(filename)
+    #     itemset = load_items(filename)
+    #     coupons = load_coupons(filename)
 
-        for node, data in graph.nodes(data=True):
-            for key, value in data.items():
-                if key == "desired_set" or key == "adopted_set":
-                    graph.nodes[node][key] = itemset[value] if value != None else None
-                elif key == "adopted_records":
-                    for i in range(0, len(value), 3):
-                        graph.nodes[node][key][i] = itemset[value[i]]
+    #     for node, data in graph.nodes(data=True):
+    #         for key, value in data.items():
+    #             if key == "desired_set" or key == "adopted_set":
+    #                 graph.nodes[node][key] = itemset[value] if value != None else None
+    #             elif key == "adopted_records":
+    #                 for i in range(0, len(value), 3):
+    #                     graph.nodes[node][key][i] = itemset[value[i]]
 
-                        c = None
-                        if value[i+1] != "":
-                            coupon_args = value[i+1].split(",")
-                            c = Coupon(
-                                        float(coupon_args[0]),
-                                        itemset[coupon_args[1]],
-                                        float(coupon_args[2]),
-                                        itemset[coupon_args[3]],
-                                        )
+    #                     c = None
+    #                     if value[i+1] != "":
+    #                         coupon_args = value[i+1].split(",")
+    #                         c = Coupon(
+    #                                     float(coupon_args[0]),
+    #                                     itemset[coupon_args[1]],
+    #                                     float(coupon_args[2]),
+    #                                     itemset[coupon_args[3]],
+    #                                     )
 
-                        graph.nodes[node][key][i+1] = c
-                        graph.nodes[node][key][i+2] = float(value[i+2])
+    #                     graph.nodes[node][key][i+1] = c
+    #                     graph.nodes[node][key][i+2] = float(value[i+2])
 
-        return DiffusionModel(modelname, graph, itemset, coupons)
-                        
+    #     return DiffusionModel(modelname, graph, itemset, coupons)
