@@ -101,7 +101,7 @@ class UsersProxy():
             for X in combinations(desired_set.numbering, length+1):
                 # the combination of iterator returns tuple type
                 X = set(X)
-                if self._itemset.issubset(adopted_set, X) and not adopted_set == X:
+                if self._itemset.issubset(adopted_set, X) and adopted_set != X:
 
                     VP = self._VP_ratio(user_id, X)
                     logging.debug("User {0}, items {1}, VP ratio {2}".format(user_id, self._itemset[X], VP))
@@ -109,8 +109,8 @@ class UsersProxy():
                         max_VP = VP
                         maxVP_mainItemset = X
 
-        if self._itemset[maxVP_mainItemset] == adopted_set:
-            logging.debug("User {0} had adopted all items.".format(user_id))
+        if maxVP_mainItemset == None and self._itemset[maxVP_mainItemset] == adopted_set:
+            logging.debug("User {0} did not adopt any new item.".format(user_id))
             return None
         
         return {"items": self._itemset[maxVP_mainItemset], "VP": max_VP} if maxVP_mainItemset != None else None
@@ -141,7 +141,6 @@ class UsersProxy():
             disItemset = self._itemset.intersection(dealItemset, coupon.disItemset)
             dealDiscount = min(disItemset.price, coupon.discount) if disItemset != None else 0
             amount -= dealDiscount
-
 
         return ratio*(sim/amount) if amount != 0 else sys.float_info.max
 
@@ -244,14 +243,14 @@ class UsersProxy():
             return None
 
         trade = dict()
-        if self._coupons == None or len(self._coupons) == 0:
+        
 
-            trade["decision_items"] = mainItemset["items"]
-            trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"])
-            trade["amount"] = trade["tradeOff_items"].price
-            trade["coupon"] = None
-            logging.info("user {0} choose main itemset {1}.".format(user_id, mainItemset["items"]))
-        else:
+        trade["decision_items"] = mainItemset["items"]
+        trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"])
+        trade["amount"] = trade["tradeOff_items"].price
+        trade["coupon"] = None
+        #logging.info("user {0} choose main itemset {1}.".format(user_id, mainItemset["items"]))
+        if self._coupons != None or len(self._coupons) != 0:
             logging.info("Adopt Addtional Itemset")
             addtional = self._adoptAddtional(user_id, mainItemset["items"])
             if mainItemset["VP"] < addtional["VP"]:

@@ -134,3 +134,5 @@ class TagRevenue(Tagger):
         self._counting += params["amount"]
         return super().tag(params, **kwargs)
 
+    def amount(self):
+        return self._counting

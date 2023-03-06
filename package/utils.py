@@ -58,3 +58,4 @@ def dot(a:list, b:list):
         raise ValueError("The length of two topics must match")
     
     return sum(i[0]*i[1] for i in zip(a, b))
+
