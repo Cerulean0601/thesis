@@ -22,9 +22,9 @@ class SN_Graph(nx.DiGraph):
             is_tested(bool):
             weight(float): 1/in_degree(u)
     '''
-    def __init__(self, node_topic:TopicModel|dict = None, located=True) -> None:
+    def __init__(self, node_topic:TopicModel|dict = None, located = True) -> None:
         super().__init__()
-        self.located = located # 原圖是否為無向圖
+        self.located = located # 原圖是否為無向圖，若為無向圖則重定向為有向圖
         self.topic = node_topic
 
     def __add__(self, another_G):
@@ -32,48 +32,39 @@ class SN_Graph(nx.DiGraph):
             It is a composed operation.If a edge or a node exists in both of the graphs, the second one will overwrite the first.
             The addtion of the two graphs can be used before the diffusion.
         '''
+        if self.located != another_G.located:
+            raise ValueError("Both of the graphs should be located, or neither.")
+        
         compose = nx.compose(self, another_G)
+        compose.located = self.located
+        
         compose._initAllEdges()
 
         return compose
 
     @staticmethod
-    def construct(nodes_file, edges_file, node_topic:TopicModel|dict, located=True) -> None:
+    def construct(edges_file, node_topic:TopicModel|dict, located=True) -> None:
         '''
           從edge的資料檔案建立點, 邊, 權重
 
           Args:
             edges_file (string): 檔案路徑
-            nodes_file (string): 包含topic的節點資料路徑
             topic (Topic)
         '''
-        graph = SN_Graph(located=located)
+        graph = SN_Graph(node_topic, located=located)
         logging.info("Constructing graph...")
 
         with open(edges_file, "r", encoding="utf8") as f:
             logging.info("Connecting the edges...")
-            edges = []
+
             for line in f:
-                nodes = line.split(",")
-                src = nodes[0]
-                det = nodes[1] if nodes[1][-1] != "\n" else nodes[1][:-1]
+                src, det = line.split(",")
+                det = det if det[-1] != "\n" else det[:-1]
 
                 if src in node_topic and det in node_topic:
-                    edges.append((src, det))
+                    graph.add_edge(src, det)
                     if located:
-                        edges.append((det, src))
-
-            graph.add_edges_from(edges)
-            del edges
-
-        with open(nodes_file, "r", encoding="utf8") as f:
-            logging.info("Adding the remaining nodes...")
-            nodes = []
-            for line in f:
-                id, *context = line.split(",")
-                nodes.append(id)
-            graph.add_nodes_from(nodes)
-            del nodes
+                        graph.add_edge(det, src)
 
         graph.initAttr()
         return graph

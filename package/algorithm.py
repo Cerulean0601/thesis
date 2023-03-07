@@ -40,6 +40,9 @@ class Algorithm:
 
     def _preporcessing(self):
         numSampling = 5
+        if len(self._model.getSeeds()) == 0:
+            raise ValueError("Should select the seeds of model before preprocessing.")
+        
         subgraph = self._graph.sampling_subgraph(numSampling, roots=self._model.getSeeds())
 
         sub_model = DiffusionModel("Subgraph", subgraph, self._model.getItemsetHandler())
@@ -144,7 +147,7 @@ class Algorithm:
             return disItemset.price
         return term
 
-    def genSelfCoupon(self):
+    def genSelfCoupons(self):
         
         tagger = self._preporcessing()
         mainItemset = tagger.getNext()

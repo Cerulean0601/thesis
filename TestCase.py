@@ -2,6 +2,7 @@ import os
 import unittest
 import networkx as nx
 import sys
+from time import time
 
 # CONSTANT
 DATA_ROOT = os.path.join("D:" + os.sep, "論文實驗", "data")
@@ -65,83 +66,40 @@ RELATION = pd.DataFrame.from_dict({
             })
 
 if __name__ == '__main__':
-    
-    TOPICS = {
-        "Node": {
-            "0": [1.0, 0.0, 0.0],
-            "1": [0.5, 0.5, 0.0],
-        },
-        "Item": {
-            "iPhone": [0.7, 0.0, 0.3],
-            "AirPods": [0.9, 0.0, 0.1],
-            "Case": [0.9, 0.0, 0.1],
-        }
-    }
-
-    PRICES = {
-        "iPhone": 260,
-        "AirPods": 90,
-        "Case": 30,
-    }
-
-    RELATION = pd.DataFrame.from_dict({
-            "iPhone":{
-                "AirPods":10,
-                "Case":30
-            },
-            "AirPods":{
-                "iPhone":1,
-                "Case":6,
-            },
-            "Case":{
-                "iPhone":3,
-                "AirPods":1,
-            }
-    })
 
     test()
-
-    topicModel = TopicModel(NUM_TOPICS, TOPICS["Node"], TOPICS["Item"])
-
-    graph = SN_Graph(TOPICS["Node"])
-    graph.add_edge("0", "1")
-
-    #graph.add_node("1")
-    graph.initAttr()
-
-    # randomGraph = nx.karate_club_graph()
     
-    # nodeTopic = dict()
-    # for node in randomGraph:
-    #     nodeTopic[node] = topicModel.randomTopic()
+    nodes = []
+    with open(r"data/facebook/data/edges") as f:
+        for line in f:
+            src, dst = line.split(",")
+            dst = dst[:-1] if dst[-1] == "\n" else dst
+            if src not in nodes:
+                nodes.append(src)
+            if dst not in nodes:
+                nodes.append(dst)
 
-    # graph = SN_Graph.transform(randomGraph, nodeTopic)
+    topicModel = TopicModel(NUM_TOPICS)
+    topicModel.setItemsTopic(TOPICS["Item"])
+    topicModel.randomTopic(nodes_id = nodes)
     
-    # nx.draw(graph, labels=nx.get_node_attributes(graph, "desired_set"))
-    
+    graph = SN_Graph.construct(r"data/facebook/data/edges", topicModel, located=False)
+
     relation = ItemRelation(RELATION)
-    itemset = ItemsetFlyweight(PRICES, topicModel.getItemsTopic(), relation)
-    COUPONS = [Coupon(330, itemset["iPhone AirPods"], 50, itemset["Case"])]
-    # items = [itemset[id] for id in list(itemset.PRICE.keys())]
+    itemset = ItemsetFlyweight(PRICES, topicModel, relation)
 
-    for ids, obj in itemset:
-        print("{0}: {1}".format(ids, obj.topic))
+    model = DiffusionModel("facebook", graph, itemset)
+    model.selectSeeds(len(PRICES.keys()))
 
-    model = DiffusionModel("dblp_amazon", graph, itemset, COUPONS)
+    algo = Algorithm(model)
     
-    model._seeds = ["1"]
-    model.allocate(model._seeds, [itemset["iPhone"]])
-    model._nodes["1"] = itemset["iPhone"]
-    # algo = Algorithm(model)
+    simluation_times = 10
+    start_time = time()
+    for i in range(simluation_times):
+        candidatedCoupons = algo.genSelfCoupons()
+        coupons = algo.simulation(candidatedCoupons)
+    end_time = time()
+    print("Runtimes: %.3f", (end_time - start_time)/simluation_times)
 
-    # coupons =  algo.genAllCoupons(50)
-    # for c in coupons:
-    #     print(c)
-    # for c in algo.simulation(coupons):
-    #     print(str(c))
-    # tagger = algo._preporcessing()
-    # print(tagger._next.table)
-    # print(tagger._next._next.table)
-
-    model.diffusion()
-
+    print("candidatedCoupons {0}".format([str(c) for c in candidatedCoupons]))
+    print("coupons {0}".format([str(c) for c in coupons]))

@@ -238,8 +238,8 @@ class UsersProxy():
         # 主商品皆為已購買過的商品
         # main itemset should be check whether is empty
 
-        if mainItemset == None:
-            logging.info("user {0}'s main itemset is None.".format(user_id))
+        if mainItemset == None or self._itemset.issubset(mainItemset["items"], self._graph.nodes[user_id]["adopted_set"]):
+            logging.debug("User {0}'s main itemset is subset equal its adopted set.".format(user_id))
             return None
 
         trade = dict()

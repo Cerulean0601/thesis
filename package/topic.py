@@ -60,22 +60,43 @@ class TopicModel():
             bow = self._corpus[nodes_size + j]
             self._mappingItem[self._items_id[j]] = [pair[1] for pair in self._model[bow]]
 
+    def __contains__(self, id):
+        return id in self._mappingItem or id in self._mappingNode
+    
     def __getitem__(self, id):
         return self._mappingNode[id] if id in self._mappingNode else self._mappingItem[id]
     
+    def setItemsTopic(self, topic:dict):
+        self._mappingItem = topic
+
     def getItemsTopic(self) -> dict:
         return self._mappingItem
     
+    def setItemsTopic(self, topic:dict):
+        self._mappingItem = topic
+
     def getNodesTopic(self) -> dict:
         return self._mappingNode
     
-    def randomTopic(self) -> list:
-        topic = [random() for t in range(self.number_topics)]
-        norm = sum(topic)
-        normTopic = [t/norm for t in topic]
-        
-        return normTopic 
+    def randomTopic(self, nodes_id=None, items_id=None) -> list:
+        def generate(numberTopics):
+            topic = [random() for t in range(numberTopics)]
+            norm = sum(topic)
+            normTopic = [t/norm for t in topic]
+            
+            return normTopic 
 
+        if not nodes_id and not items_id:
+            raise ValueError("The arguments of id should be pass at least one, nodes or items.")
+        
+        if nodes_id:
+            for id in nodes_id:
+                self._mappingNode[id] = generate(self.number_topics)
+        
+        if items_id:
+            for asin in items_id:
+                self._mappingItem[asin] = generate(self.number_topics)
+        
 
     def save(self, path = "D:\\論文實驗\\data\\topic\\"):
         def saveToFile(filename, _mapping):
@@ -112,5 +133,6 @@ class TopicModel():
                 loadFromFile(path + "topic" + str(number_topics) + "_users.csv"),
                 loadFromFile(path + "topic" + str(number_topics) + "_items.csv"))
         
+
 
         
