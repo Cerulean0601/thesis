@@ -8,6 +8,7 @@ import logging
 import heapq
 from multiprocessing.pool import ThreadPool
 import multiprocessing
+import copy 
 
 from tag import *
 from itemset import Itemset
@@ -187,7 +188,8 @@ class Algorithm:
     
     def simulation(self, candidatedCoupons):
         def parallel(coupons):
-            model = DiffusionModel("", self._model.getGraph(), self._model.getItemsetHandler(), coupons)
+            graph = self._model.getGraph()
+            model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupons)
             tag = TagRevenue()
             model.diffusion(tag)
 

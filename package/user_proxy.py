@@ -109,7 +109,7 @@ class UsersProxy():
                         max_VP = VP
                         maxVP_mainItemset = X
 
-        if maxVP_mainItemset == None and self._itemset[maxVP_mainItemset] == adopted_set:
+        if maxVP_mainItemset == None or self._itemset[maxVP_mainItemset] == adopted_set:
             logging.debug("User {0} did not adopt any new item.".format(user_id))
             return None
         

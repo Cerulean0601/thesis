@@ -5,9 +5,10 @@ import sys
 from time import time
 
 # CONSTANT
-DATA_ROOT = os.path.join("D:" + os.sep, "論文實驗", "data")
-DBLP_PATH = os.path.join(DATA_ROOT, "dblp")
-AMAZON_PATH = os.path.join(DATA_ROOT, "amazon")
+DATA_ROOT = "./data/"
+DBLP_PATH = DATA_ROOT + "dblp/"
+AMAZON_PATH = DATA_ROOT + "amazon/"
+FACEBOOK_PATH = DATA_ROOT + "facebook/"
 
 
 def test():
@@ -19,7 +20,7 @@ import sys
 import logging
 
 logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
-sys.path.append('D:\\論文實驗\\package')
+sys.path.append('./package/')
 
 import pandas as pd
 
@@ -65,12 +66,12 @@ RELATION = pd.DataFrame.from_dict({
             }
             })
 
-if __name__ == '__main__':
-
+if __name__ == '__main__':    
+    
     test()
     
     nodes = []
-    with open(r"data/facebook/data/edges") as f:
+    with open(r"./data/facebook/data/edges") as f:
         for line in f:
             src, dst = line.split(",")
             dst = dst[:-1] if dst[-1] == "\n" else dst
@@ -96,7 +97,7 @@ if __name__ == '__main__':
     simluation_times = 10
     start_time = time()
     for i in range(simluation_times):
-        candidatedCoupons = algo.genSelfCoupons()
+        candidatedCoupons = algo.genAllCoupons(1)
         coupons = algo.simulation(candidatedCoupons)
     end_time = time()
     print("Runtimes: %.3f", (end_time - start_time)/simluation_times)

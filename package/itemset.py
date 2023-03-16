@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import itertools
 import json
-from faker.providers import BaseProvider
 from random import random
 from itertools import combinations
 import math
@@ -47,25 +46,6 @@ class Itemset():
     
     def empty(self):
         return len(self.numbering) == 0
-
-class ItemProvider(BaseProvider):
-    def __init__(self, k):
-        self._k = k
-      
-    def prices(self, minPrice=1, maxPrice=1000) -> list:
-        mid = int((minPrice + maxPrice)/2)
-        p = [0]*(maxPrice - minPrice + 1)
-        for i in range(mid):
-            p[mid + i] = mid - i
-            p[mid - i] = mid - i
-        norm = sum(p)
-        p = [weight/norm for weight in p]
-        
-        return np.random.choice(range(minPrice, maxPrice+1), size=self._k, p=p)
-    '''
-    def topicDistribution(self) -> list:
-        return np.random.rand(1, self._k)
-    '''
 
 class ItemRelation():
     def __init__(self, relation: pd.DataFrame = None):
