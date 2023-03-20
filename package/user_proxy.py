@@ -218,7 +218,7 @@ class UsersProxy():
             return 0
 
         actuallyDis = self._itemset.intersection(itemset, coupon.disItemset)
-        return min(actuallyDis.price, coupon.discount)
+        return 0 if actuallyDis == None else min(actuallyDis.price, coupon.discount)
     
     def adopt(self, user_id):
         '''
