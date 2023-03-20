@@ -28,13 +28,12 @@ class Algorithm:
             Generates a set of all possible coupons.
         '''
         coupons = []
-        min_amount = min(self._itemset.PRICE.values())
-        limit_amout = sum(self._itemset.PRICE.values())
-
-        for threshold in range(min_amount, limit_amout, price_step):
-            for accNumbering, accItemset in self._itemset:
-                for discount in range(1 ,limit_amout, price_step):
-                    for disNumbering, disItemset in self._itemset:
+        
+        for accNumbering, accItemset in self._itemset:
+            min_amount = min([self._itemset[numbering].price for numbering in accItemset.numbering])
+            for threshold in range(min_amount, accItemset.price, price_step):
+                for disNumbering, disItemset in self._itemset:
+                    for discount in range(1 ,disItemset.price, price_step):
                         coupons.append(Coupon(threshold, accItemset, discount, disItemset))
     
         return coupons
