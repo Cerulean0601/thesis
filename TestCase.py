@@ -47,9 +47,9 @@ TOPICS = {
     }
 }
 PRICES = {
-    "iPhone": 260,
-    "AirPods": 60,
-    "Galaxy": 500,
+    "iPhone": 50,
+    "AirPods": 5,
+    "Galaxy": 60,
 }
 RELATION = pd.DataFrame.from_dict({
             "iPhone":{
@@ -69,22 +69,36 @@ RELATION = pd.DataFrame.from_dict({
 if __name__ == '__main__':    
     
     test()
-    
-    nodes = []
-    with open(r"./data/facebook/data/edges") as f:
-        for line in f:
-            src, dst = line.split(",")
-            dst = dst[:-1] if dst[-1] == "\n" else dst
-            if src not in nodes:
-                nodes.append(src)
-            if dst not in nodes:
-                nodes.append(dst)
+    TOPICS = {
+        "Node": {
+            0: [0.9, 0.1, 0.0],
+            1: [0.2, 0.8, 0.0],
+            2: [0.8, 0.2, 0.0],
+            3: [0.2, 0.4, 0.4],
+        },
+        "Item": {
+            "iPhone": [0.7, 0.0, 0.3],
+            "AirPods": [0.9, 0.0, 0.1],
+            "Galaxy": [0.0, 0.8, 0.2],
+        }
+    }
+    # nodes = []
+    # with open(r"./data/facebook/data/edges") as f:
+    #     for line in f:
+    #         src, dst = line.split(",")
+    #         dst = dst[:-1] if dst[-1] == "\n" else dst
+    #         if src not in nodes:
+    #             nodes.append(src)
+    #         if dst not in nodes:
+    #             nodes.append(dst)
 
-    topicModel = TopicModel(NUM_TOPICS)
-    topicModel.setItemsTopic(TOPICS["Item"])
-    topicModel.randomTopic(nodes_id = nodes)
+    graph = nx.diamond_graph()
+    graph = SN_Graph.transform(graph, TOPICS["Node"])
+    topicModel = TopicModel(NUM_TOPICS, TOPICS["Node"], TOPICS["Item"])
+    # topicModel.setItemsTopic(TOPICS["Item"])
+    # topicModel.randomTopic(nodes_id = nodes)
     
-    graph = SN_Graph.construct(r"data/facebook/data/edges", topicModel, located=False)
+    # graph = SN_Graph.construct(r"data/facebook/data/edges", topicModel, located=False)
 
     relation = ItemRelation(RELATION)
     itemset = ItemsetFlyweight(PRICES, topicModel, relation)
@@ -93,14 +107,15 @@ if __name__ == '__main__':
     model.selectSeeds(len(PRICES.keys()))
 
     algo = Algorithm(model)
-    
-    simluation_times = 10
-    start_time = time()
-    for i in range(simluation_times):
-        candidatedCoupons = algo.genAllCoupons(1)
-        coupons = algo.simulation(candidatedCoupons)
-    end_time = time()
-    print("Runtimes: %.3f", (end_time - start_time)/simluation_times)
+    candidatedCoupons = algo.genAllCoupons(5)
+    print(len(candidatedCoupons))
+    # simluation_times = 10
+    # start_time = time()
+    # for i in range(simluation_times):
+    #     candidatedCoupons = algo.genAllCoupons(1)
+    #     coupons = algo.simulation(candidatedCoupons)
+    # end_time = time()
+    # print("Runtimes: %.3f", (end_time - start_time)/simluation_times)
 
-    print("candidatedCoupons {0}".format([str(c) for c in candidatedCoupons]))
-    print("coupons {0}".format([str(c) for c in coupons]))
+    # print("candidatedCoupons {0}".format([str(c) for c in candidatedCoupons]))
+    # print("coupons {0}".format([str(c) for c in coupons]))
