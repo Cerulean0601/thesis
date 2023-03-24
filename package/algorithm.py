@@ -220,7 +220,7 @@ class Algorithm:
                 if result[i]> maxMargin:
                     maxMargin = result[i]
                     maxIndex = i
-               
+            
             # if these coupons are more benfit than current coupons, add it and update 
             if maxMargin > revenue:
                 revenue = maxMargin

@@ -19,7 +19,7 @@ def test():
 import sys
 import logging
 
-logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 sys.path.append('./package/')
 
 import pandas as pd
@@ -79,9 +79,20 @@ if __name__ == '__main__':
         "Item": {
             "iPhone": [0.7, 0.0, 0.3],
             "AirPods": [0.9, 0.0, 0.1],
-            "Galaxy": [0.0, 0.8, 0.2],
         }
     }
+    PRICES = {
+        "iPhone": 50,
+        "AirPods": 5,
+    }
+    RELATION = pd.DataFrame.from_dict({
+            "iPhone":{
+                "AirPods":10,
+            },
+            "AirPods":{
+                "iPhone":1,
+            },
+            })
     # nodes = []
     # with open(r"./data/facebook/data/edges") as f:
     #     for line in f:
@@ -109,13 +120,14 @@ if __name__ == '__main__':
     algo = Algorithm(model)
     candidatedCoupons = algo.genAllCoupons(5)
     print(len(candidatedCoupons))
-    # simluation_times = 10
-    # start_time = time()
-    # for i in range(simluation_times):
-    #     candidatedCoupons = algo.genAllCoupons(1)
-    #     coupons = algo.simulation(candidatedCoupons)
-    # end_time = time()
-    # print("Runtimes: %.3f", (end_time - start_time)/simluation_times)
+    input()
+    simluation_times = 1
+    start_time = time()
+    for i in range(simluation_times):
+        candidatedCoupons = algo.genAllCoupons(1)
+        coupons = algo.simulation(candidatedCoupons)
+    end_time = time()
+    print("Runtimes: %.3f", (end_time - start_time)/simluation_times)
 
-    # print("candidatedCoupons {0}".format([str(c) for c in candidatedCoupons]))
-    # print("coupons {0}".format([str(c) for c in coupons]))
+    print("candidatedCoupons {0}".format([str(c) for c in candidatedCoupons]))
+    print("coupons {0}".format([str(c) for c in coupons]))
