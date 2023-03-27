@@ -9,6 +9,8 @@ import heapq
 from multiprocessing.pool import ThreadPool
 import multiprocessing
 import copy 
+from itertools import combinations
+from os import cpu_count
 
 from tag import *
 from itemset import Itemset
@@ -31,7 +33,7 @@ class Algorithm:
         
         for accNumbering, accItemset in self._itemset:
             min_amount = min([self._itemset[numbering].price for numbering in accItemset.numbering])
-            for threshold in range(min_amount, accItemset.price, price_step):
+            for threshold in range(min_amount, accItemset.price + price_step - 1, price_step):
                 for disNumbering, disItemset in self._itemset:
                     for discount in range(1 ,disItemset.price, price_step):
                         coupons.append(Coupon(threshold, accItemset, discount, disItemset))
@@ -45,7 +47,11 @@ class Algorithm:
         
         subgraph = self._graph.sampling_subgraph(numSampling, roots=self._model.getSeeds())
 
-        sub_model = DiffusionModel("Subgraph", subgraph, self._model.getItemsetHandler())
+        sub_model = DiffusionModel("Subgraph", 
+                                   subgraph, 
+                                   self._model.getItemsetHandler(),
+                                   self._model.getUserProxy().getThreshold()
+                                   )
         sub_model._seeds = self._model.getSeeds()
         sub_model.allocate(sub_model._seeds, [self._itemset[id] for id in list(self._itemset.PRICE.keys())])
         self._shortestPath(sub_model.getSeeds())
@@ -185,6 +191,7 @@ class Algorithm:
         
         return coupons
     
+    
     def simulation(self, candidatedCoupons):
         def parallel(coupons):
             graph = self._model.getGraph()
@@ -207,7 +214,7 @@ class Algorithm:
                 3. Concatenate all of the candidateings with the maximize revenue coupon
             '''
 
-            pool = ThreadPool()
+            pool = ThreadPool(cpu_count())
             result = pool.map(parallel, coupons)
             pool.close()
             pool.join()
@@ -233,3 +240,25 @@ class Algorithm:
         
         print(revenue)
         return output
+    
+    def optimalAlgo(self, candidatedCoupons:list):
+        def parallel(coupons):
+            graph = self._model.getGraph()
+            model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupons)
+            tag = TagRevenue()
+            model.diffusion(tag)
+
+            return tag.amount()
+
+        pool = ThreadPool(cpu_count())
+
+        couponsPowerset = [ comb for size in range(len(candidatedCoupons) + 1) 
+                           for comb in combinations(candidatedCoupons, size)]
+        result = pool.map(parallel, couponsPowerset)
+        
+        pool.close()
+        pool.join()
+        
+        return couponsPowerset[result.index(max(result))]
+
+        

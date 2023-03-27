@@ -10,16 +10,20 @@ class UsersProxy():
     '''
       使用者的購買行為，包含挑選主商品、額外購買、影響成功後的行為
     '''
-    def __init__(self, graph: SN_Graph, itemset: ItemsetFlyweight, coupons) -> None:
+    def __init__(self, graph: SN_Graph, itemset: ItemsetFlyweight, coupons, threhold = 0.0) -> None:
         self._graph = graph
         self._itemset = itemset
         self._coupons = coupons
+        self._threhold = threhold
 
     def setGraph(self, newGraph:SN_Graph):
         if not isinstance(newGraph, SN_Graph):
             raise TypeError("Replaced graph is not SN_Graph class.\n")
         
         self._graph = newGraph
+    
+    def getThrehold(self):
+        return self._threhold
     
     def replaceCoupons(self, coupons):
         self._coupons = coupons
@@ -249,22 +253,24 @@ class UsersProxy():
         trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"])
         trade["amount"] = trade["tradeOff_items"].price
         trade["coupon"] = None
+        trade["VP"] = mainItemset["VP"]
         #logging.info("user {0} choose main itemset {1}.".format(user_id, mainItemset["items"]))
         if self._coupons != None or len(self._coupons) != 0:
             logging.info("Adopt Addtional Itemset")
             addtional = self._adoptAddtional(user_id, mainItemset["items"])
-            if mainItemset["VP"] < addtional["VP"]:
+            if trade["VP"] < addtional["VP"]:
+                trade["VP"] = addtional["VP"]
                 trade["decision_items"] = addtional["items"]
                 trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"]) 
                 trade["amount"] = trade["tradeOff_items"].price - self._discount(trade["tradeOff_items"], addtional["coupon"])
                 trade["coupon"] = addtional["coupon"]
-                logging.info("user {0} choose addtional itemset {1} with coupon {2}.".format(user_id, mainItemset["items"], addtional["coupon"]))
-            else:
-                logging.info("user {0} choose main itemset {1}.".format(user_id, mainItemset["items"]))
-           
-        self._graph.nodes[user_id]["adopted_set"] = self._itemset.union(
-                                self._graph.nodes[user_id]["adopted_set"],
-                                trade["tradeOff_items"])
+        
+        if trade["VP"] >= self._threhold:
+            self._graph.nodes[user_id]["adopted_set"] = self._itemset.union(
+                                    self._graph.nodes[user_id]["adopted_set"],
+                                    trade["tradeOff_items"])
 
-        self._graph.nodes[user_id]["adopted_records"].extend([trade["tradeOff_items"], trade["coupon"], trade["amount"]])
-        return trade
+            self._graph.nodes[user_id]["adopted_records"].extend([trade["tradeOff_items"], trade["coupon"], trade["amount"]])
+            return trade
+        else:
+            return None

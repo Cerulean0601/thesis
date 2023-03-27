@@ -22,7 +22,7 @@ class TestUserProxy(unittest.TestCase):
         self._itemset = ItemsetFlyweight(prices = prices, topic = topic)
         self._graph = SN_Graph()
         self._coupons = [Coupon(180, ["0"], 20, ["0","1"]),]
-        self._user_proxy = UsersProxy(self._graph, self._itemset, self._coupons)
+        self._user_proxy = UsersProxy(self._graph, self._itemset, self._coupons, 0)
 
         return super().setUp()
 

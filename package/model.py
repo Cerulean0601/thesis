@@ -17,14 +17,14 @@ from topic import TopicModel
 #from tag import Tagger, TagMainItemset, TagAppending
 
 class DiffusionModel():
-    def __init__(self, name, graph:SN_Graph, itemset, coupons=[]) -> None:
+    def __init__(self, name, graph:SN_Graph, itemset, coupons=[], threshold = 0.0) -> None:
         self._graph = graph
         self.name = name
 
         self._itemset = ItemsetFlyweight(itemset["price"], itemset["topic"]) if type(itemset) == dict else itemset
 
         self._coupons = coupons
-        self._user_proxy = UsersProxy(self._graph, self._itemset, self._coupons)
+        self._user_proxy = UsersProxy(self._graph, self._itemset, self._coupons, threshold)
         self._seeds = []
         
     def getRevenue(self) -> list:
@@ -41,7 +41,7 @@ class DiffusionModel():
         result = pool.map(getEachNodeRevenue, self._graph.nodes)
         pool.close()
         return result
-
+    
     def getSeeds(self):
         return self._seeds
 
