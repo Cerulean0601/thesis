@@ -60,8 +60,21 @@ class ItemRelation():
 
         return str(sorted_index)
 
-    def __getitem__(self, x):
+    def __getitem__(self, key):
+        x, y = key
+
+        if x not in self._relation:
+            raise KeyError("{0} is not in the realtion matrix.")
+        if y != None:
+            if y not in self._relation[x]:
+                return self._transform(0)
+            return self._relation[x][y]
+        
         return self._relation[x]
+    
+    def __iter__(self):
+        for key in self._relation:
+            yield self._relation[key]
 
     def construct(self, dataset):
         '''
@@ -95,17 +108,17 @@ class ItemRelation():
         self._relation = pd.DataFrame.from_dict(self._relation)
         self._normalize()
     
+    def _transform(self, param: int|float|pd.DataFrame):
+        return 1 + (1/ (1+np.exp(-param)))
+    
     def _normalize(self):
-        def tranform(frame):
-            return 1 + (1/ (1+np.exp(-frame)) )
-        
         def min_max(frame):
             maxValue = frame.abs().max().max()
             
             return frame / maxValue
             
         self._relation = min_max(self._relation.fillna(0))
-        self._relation = tranform(self._relation)
+        self._relation = self._transform(self._relation)
         
         for numbering, value in self._relation.items():
             # if x.numbering == y.numbering, assign nan
@@ -130,7 +143,7 @@ class ItemsetFlyweight():
         self._relation = relation
         self.size = len(list(prices.values()))
         self._map = dict()
-        
+        'B01BKWLPS2'
         for key in self.TOPIC.keys():
             # initialize
             ids = key.split(" ")
@@ -177,7 +190,7 @@ class ItemsetFlyweight():
             coeff_list.append(0)
             for j in collection:
                 if j != i:
-                    coeff_list[-1] += self._relation[j][i]
+                    coeff_list[-1] += self._relation[j, i]
 
         normDenominator = sum(coeff_list)
         for i in range(len(collection)):

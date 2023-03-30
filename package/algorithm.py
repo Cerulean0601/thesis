@@ -5,7 +5,7 @@ from coupon import Coupon
 from networkx import shortest_path_length
 import pandas as pd
 import logging
-import heapq
+import numpy as np
 from multiprocessing.pool import ThreadPool
 import multiprocessing
 import copy 
@@ -33,9 +33,9 @@ class Algorithm:
         
         for accNumbering, accItemset in self._itemset:
             min_amount = min([self._itemset[numbering].price for numbering in accItemset.numbering])
-            for threshold in range(min_amount, accItemset.price + price_step - 1, price_step):
+            for threshold in np.arange(min_amount, accItemset.price + price_step - 1, price_step):
                 for disNumbering, disItemset in self._itemset:
-                    for discount in range(1 ,disItemset.price, price_step):
+                    for discount in np.arange(1 ,disItemset.price, price_step):
                         coupons.append(Coupon(threshold, accItemset, discount, disItemset))
     
         return coupons

@@ -1,5 +1,4 @@
 from os.path import exists
-import os
 import nltk
 from gensim.models import LdaMulticore
 from gensim.corpora import dictionary
@@ -18,7 +17,7 @@ class TopicModel():
     def construct(self, nodes_file, items_file):
         def _prepare(file):
             
-            path = file.split(os.sep)
+            path = file.split("/")
             path = [directory.lower() for directory in path]
             datasetName = path[-2]
 
@@ -55,10 +54,10 @@ class TopicModel():
         nodes_size = len(self._nodes_id)
         for i in range(nodes_size):
             bow = self._corpus[i]
-            self._mappingNode[self._nodes_id[i]] = [pair[1] for pair in self._model[bow]]
+            self._mappingNode[self._nodes_id[i]] = [pair[1] for pair in self._model.get_document_topics(bow, 0)]
         for j in range(len(self._items_id)):
             bow = self._corpus[nodes_size + j]
-            self._mappingItem[self._items_id[j]] = [pair[1] for pair in self._model[bow]]
+            self._mappingItem[self._items_id[j]] = [pair[1] for pair in self._model.get_document_topics(bow, 0)]
 
     def __contains__(self, id):
         return id in self._mappingItem or id in self._mappingNode
