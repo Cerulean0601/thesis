@@ -143,7 +143,7 @@ class ItemsetFlyweight():
         self._relation = relation
         self.size = len(list(prices.values()))
         self._map = dict()
-        'B01BKWLPS2'
+
         for key in self.TOPIC.keys():
             # initialize
             ids = key.split(" ")

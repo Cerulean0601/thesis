@@ -18,13 +18,14 @@ from utils import dot
 from model import DiffusionModel
 
 class Algorithm:
-    def __init__(self, model):
+    def __init__(self, model, k):
         self._model = model
         self._graph = model.getGraph()
         self._itemset = model.getItemsetHandler()
         self._expected = dict()
         self._belonging = None
-        
+        self._limitNum = k
+
     def genAllCoupons(self, price_step:float):
         '''
             Generates a set of all possible coupons.
@@ -35,7 +36,7 @@ class Algorithm:
             min_amount = min([self._itemset[numbering].price for numbering in accItemset.numbering])
             for threshold in np.arange(min_amount, accItemset.price + price_step - 1, price_step):
                 for disNumbering, disItemset in self._itemset:
-                    for discount in np.arange(1 ,disItemset.price, price_step):
+                    for discount in np.arange(5 ,disItemset.price, price_step):
                         coupons.append(Coupon(threshold, accItemset, discount, disItemset))
     
         return coupons
@@ -207,7 +208,8 @@ class Algorithm:
         revenue = 0
         coupons = [[c] for c in candidatedCoupons]
         output = []
-        while len(candidatedCoupons) != 0:
+
+        while len(candidatedCoupons) != 0 and len(output) < self._limitNum:
             '''
                 1. Simulate with all candidated coupon
                 2. Get the coupon which can maximize revenue, and delete it from the candidatings
@@ -237,8 +239,7 @@ class Algorithm:
                 
             else:
                 break
-        
-        print(revenue)
+            
         return output
     
     def optimalAlgo(self, candidatedCoupons:list):
@@ -251,8 +252,8 @@ class Algorithm:
             return tag.amount()
 
         pool = ThreadPool(cpu_count())
-
-        couponsPowerset = [ comb for size in range(len(candidatedCoupons) + 1) 
+        couponSzie = min(len(candidatedCoupons), self._limitNum)
+        couponsPowerset = [ comb for size in range(couponSzie + 1) 
                            for comb in combinations(candidatedCoupons, size)]
         result = pool.map(parallel, couponsPowerset)
         

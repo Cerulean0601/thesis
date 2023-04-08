@@ -37,6 +37,7 @@ def extractTokensWithID(name, path_dataset):
     list_tokens = []
     ids = []
     with open(path_dataset, "r", encoding="utf8") as f:
+        next(f)
         for line in f:
             values = line.split(",")
             id,tokens = extractFunc(values)
@@ -48,10 +49,43 @@ def getItemsPrice(filename) -> list:
     prices = dict()
 
     with open(filename, "r", encoding="utf8") as dataFile:
+        next(dataFile)
         for line in dataFile:
             id, *context, price = line.split(",")
             prices[id] = float(price[:-1])
     return prices
+
+def read_items(filename):
+    dataset = dict()
+    with open(filename) as file:
+        next(file)
+        for line in file:
+            asin, also_view, also_buy, category, price = line.split(",")
+            dataset[asin] = dict()
+            dataset[asin]["also_view"] = also_view.split(" ")
+            dataset[asin]["also_buy"] = also_buy.split(" ")
+            dataset[asin]["category"] = category.split(" ")
+            dataset[asin]["price"] = float(price)
+            dataset[asin]["freq"] = 1
+
+    for asin, attr in dataset.items():
+        filter_list = []
+        for substitution in attr["also_view"]:
+            if substitution in dataset:
+                filter_list.append(substitution)
+                dataset[substitution]["freq"] += 1
+
+        dataset[asin]["also_view"] = filter_list
+
+        filter_list = []
+        for complementary in attr["also_buy"]:
+            if complementary in dataset:
+                filter_list.append(complementary)
+                dataset[complementary]["freq"] += 1
+
+        dataset[asin]["also_buy"] = filter_list
+
+    return dataset
 
 def dot(a:list, b:list):
     if len(a) != len(b):
