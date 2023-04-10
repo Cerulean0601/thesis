@@ -66,24 +66,6 @@ def read_items(filename):
             dataset[asin]["also_buy"] = also_buy.split(" ")
             dataset[asin]["category"] = category.split(" ")
             dataset[asin]["price"] = float(price)
-            dataset[asin]["freq"] = 1
-
-    for asin, attr in dataset.items():
-        filter_list = []
-        for substitution in attr["also_view"]:
-            if substitution in dataset:
-                filter_list.append(substitution)
-                dataset[substitution]["freq"] += 1
-
-        dataset[asin]["also_view"] = filter_list
-
-        filter_list = []
-        for complementary in attr["also_buy"]:
-            if complementary in dataset:
-                filter_list.append(complementary)
-                dataset[complementary]["freq"] += 1
-
-        dataset[asin]["also_buy"] = filter_list
 
     return dataset
 

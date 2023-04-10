@@ -52,10 +52,10 @@ class SN_Graph(nx.DiGraph):
             topic (Topic)
         '''
         graph = SN_Graph(node_topic, located=located)
-        logging.info("Constructing graph...")
+        print("Constructing graph...")
 
         with open(edges_file, "r", encoding="utf8") as f:
-            logging.info("Connecting the edges...")
+            print("Connecting the edges...", end="")
 
             for line in f:
                 src, det = line.split(",")
@@ -67,6 +67,7 @@ class SN_Graph(nx.DiGraph):
                         graph.add_edge(det, src)
 
         graph.initAttr()
+        print("Done.")
         return graph
         
     def _bfs_sampling(self, num_nodes:int = None, roots:list = []):

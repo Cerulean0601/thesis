@@ -64,6 +64,9 @@ class DiffusionModel():
     def setCoupons(self, coupons):
         self._coupons = coupons
 
+    def getThreshold(self):
+        return self._user_proxy.getThrehold()
+
     def selectSeeds(self, k:int) -> list:
         '''
             Return:

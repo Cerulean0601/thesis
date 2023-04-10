@@ -14,7 +14,7 @@ class TopicModel():
         self._mappingItem = itemsTopic
         self.number_topics = number_topics
 
-    def construct(self, nodes_file, items_file):
+    def construct(self, items_file, nodes_file=None):
         def _prepare(file):
             
             path = file.split("/")
@@ -23,18 +23,16 @@ class TopicModel():
 
             return utils.extractTokensWithID(datasetName, file)
         
-        def _constructCorpus(nodes: list[list[str]], items: list[list[str]]):
+        def _constructCorpus(docs: list[list[str]]):
             '''
                 從 tokens 建立語料庫
 
                 Args: 
-                    nodes (list[list[str]]]): a list of tokens of users
-                    items (list[list[str]]): a list of tokens of items
+                    nodes (list[list[str]]]): a list of tokens of item and users, if nodes_file is not None
             '''
-            nodes.extend(items)
 
-            _id2word = dictionary.Dictionary(nodes)
-            _corpus= [_id2word.doc2bow(text) for text in nodes]
+            _id2word = dictionary.Dictionary(docs)
+            _corpus= [_id2word.doc2bow(text) for text in docs]
 
             return _id2word, _corpus
 
@@ -43,21 +41,28 @@ class TopicModel():
             nltk.download("stopwords", download_dir=self._stopwords_path)
         logging.info("Download stopwords done.")
 
-        self._nodes_id, node_docs = _prepare(nodes_file)
         self._items_id, item_docs = _prepare(items_file)
+        if nodes_file != None:
+            self._nodes_id, node_docs = _prepare(nodes_file)
+            item_docs.extend(node_docs)
+            docs = item_docs
 
         logging.info("Prepare to construct corpora")
-        self._id2word, self._corpus = _constructCorpus(node_docs, item_docs)
+        self._id2word, self._corpus = _constructCorpus(docs)
         logging.info("Construct LDA Model.")
         self._model = LdaMulticore(corpus=self._corpus, num_topics=self.number_topics, id2word=self._id2word)
 
-        nodes_size = len(self._nodes_id)
-        for i in range(nodes_size):
-            bow = self._corpus[i]
-            self._mappingNode[self._nodes_id[i]] = [pair[1] for pair in self._model.get_document_topics(bow, 0)]
         for j in range(len(self._items_id)):
-            bow = self._corpus[nodes_size + j]
+            bow = self._corpus[j]
             self._mappingItem[self._items_id[j]] = [pair[1] for pair in self._model.get_document_topics(bow, 0)]
+
+        if nodes_file != None:
+            bias = len(self._items_id)
+            for i in range(bias, len(self._corpus)):
+                bow = self._corpus[i]
+                self._mappingNode[self._nodes_id[i]] = [pair[1] for pair in self._model.get_document_topics(bow, 0)]
+                
+        
 
     def __contains__(self, id):
         return id in self._mappingItem or id in self._mappingNode

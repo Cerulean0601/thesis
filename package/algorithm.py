@@ -243,18 +243,26 @@ class Algorithm:
         return output
     
     def optimalAlgo(self, candidatedCoupons:list):
-        def parallel(coupons):
+        def parallel(args):
+            coupon = args[1]
             graph = self._model.getGraph()
-            model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupons)
+            model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
+            print("start  {0}: {1}".format(args[0], args[1]))
             tag = TagRevenue()
             model.diffusion(tag)
-
+            print("end  {0}: {1}".format(args[0], args[1]))
             return tag.amount()
 
         pool = ThreadPool(cpu_count())
         couponSzie = min(len(candidatedCoupons), self._limitNum)
-        couponsPowerset = [ comb for size in range(couponSzie + 1) 
-                           for comb in combinations(candidatedCoupons, size)]
+
+        couponsPowerset = []
+        i = 0
+        for size in range(couponSzie + 1): 
+            for comb in combinations(candidatedCoupons, size):
+                couponsPowerset.append((i, comb))
+                i += 1
+
         result = pool.map(parallel, couponsPowerset)
         
         pool.close()
