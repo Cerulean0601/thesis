@@ -1,5 +1,6 @@
 from itemset import ItemsetFlyweight
 import logging
+import networkx as nx
 
 class Tagger:
 
@@ -124,14 +125,16 @@ class TagAppending(Tagger):
         return max(self.table[group], key=self.table[group].get)
 
 class TagRevenue(Tagger):
-    def __init__(self):
+    def __init__(self, graph):
         self._counting = 0
-        
+        self._graph = graph
+
     def tag(self, params, **kwargs):
         for k, v in kwargs.items():
             params[k] = v
 
-        self._counting += params["amount"]
+        src, det = params["src"], params["det"]
+        self._counting += params["amount"]*self._graph.caculate_shortest_path_length(src, det)
         return super().tag(params, **kwargs)
 
     def amount(self):

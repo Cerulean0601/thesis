@@ -95,20 +95,25 @@ if __name__ == '__main__':
     model = DiffusionModel("amazon in dblp", graph, itemset, threshold=10**(-5))
 
 
-    algo = Algorithm(model, 10)
-    candidatedCoupons = algo.genAllCoupons(20.0)
-    simluation_times = 1
-    
-    for i in range(simluation_times):
-        start_time = time()
-        candidatedCoupons = algo.genAllCoupons(50.0)
-        coupons = algo.optimalAlgo(candidatedCoupons)
-        end_time = time()
-    
-        with open("time_record.txt", "a") as record:
-            record.write("{0}: {1}".format(ctime(end_time),(end_time - start_time)))
-    print("candidatedCoupons {0}".format([str(c) for c in candidatedCoupons]))
-    print("coupons {0}".format([str(c) for c in coupons]))
+    algo = Algorithm(model,0)
+    simluation_times = 3
+    recordFilename = r"./result/greedy.txt"
+    for k in range(12):
+        algo.setLimitCoupon(k)
+        for i in range(simluation_times):
+            start_time = time()
+            candidatedCoupons = algo.genAllCoupons(30.0)
+            revenue = algo.simulation(candidatedCoupons)
+            end_time = time()
+        
+            with open(recordFilename, "a") as record:
+                record.write("{0}, runtime={1}, revenue={2}, k={3}, times={4}\n".format(
+                    ctime(end_time),
+                    (end_time - start_time),
+                    revenue,
+                    k,
+                    i
+                    ))
 
         
     # except Exception as e:
