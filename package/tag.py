@@ -134,7 +134,8 @@ class TagRevenue(Tagger):
             params[k] = v
 
         src, det = params["src"], params["det"]
-        self._counting += params["amount"]*self._graph.caculate_shortest_path_length(src, det)
+        expectedProbability = self._graph.caculate_shortest_path_length(src, det) if src != None else 1
+        self._counting += params["amount"]*expectedProbability
         return super().tag(params, **kwargs)
 
     def amount(self):

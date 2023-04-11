@@ -132,13 +132,14 @@ class DiffusionModel():
         propagatedQueue = Queue()
         for seed in self._seeds:
             logging.debug("Allocate {0} to {1}".format(self._graph.nodes[seed]["desired_set"], seed))
-            propagatedQueue.put(seed)
+            propagatedQueue.put((None, seed))
 
         logging.info("Allocation is complete.")
         
         while not propagatedQueue.empty():
-            node_id = propagatedQueue.get()
-            
+            src, det = propagatedQueue.get()
+            node_id = det
+
             trade = self._user_proxy.adopt(node_id)
             
             # 如果沒購買任何東西則跳過此使用者不做後續的流程
@@ -163,19 +164,18 @@ class DiffusionModel():
             logging.debug("--------------------------------")
 
             trade["src"] = src
-            trade["det"] = det
-
+            trade["det"] = node_id
+            
             if tagger != None:
                 tagger.tag(trade, node_id=src, node=self._graph.nodes[src])
             logging.info("user {0} traded {1}".format(src, trade["tradeOff_items"]))
             
-            
-            is_activated  = self._propagate(src, det, trade["decision_items"])
-            logging.info("{0} tries to activate {1}: {2}".format(src, det, is_activated))
-            if is_activated:
-                logging.debug("{0}'s desired_set: {1}".format(det, self._graph.nodes[det]["desired_set"]))
-                for out_neighbor in self._graph.neighbors(det):
-                    propagatedQueue.put((det, out_neighbor))
+            for out_neighbor in self._graph.neighbors(node_id):
+                is_activated  = self._propagate(node_id, out_neighbor, trade["decision_items"])
+                logging.info("{0} tries to activate {1}: {2}".format(node_id, det, is_activated))
+                if is_activated:
+                    logging.debug("{0}'s desired_set: {1}".format(det, self._graph.nodes[det]["desired_set"]))
+                    propagatedQueue.put((node_id, out_neighbor))
                     
     # def save(self, dir_path):
 
