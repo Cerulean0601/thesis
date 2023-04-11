@@ -222,11 +222,13 @@ class Algorithm:
                 3. Concatenate all of the candidateings with the maximize revenue coupon
             '''
 
-            pool = ThreadPool(cpu_count())
-            result = pool.map(parallel, coupons)
-            pool.close()
-            pool.join()
-
+            # pool = ThreadPool(cpu_count())
+            # result = pool.map(parallel, coupons)
+            # pool.close()
+            # pool.join()
+            result = []
+            for args in coupons:
+                result.append(parallel(args))
             maxRevenue = 0
             maxIndex = 0
 
@@ -254,7 +256,7 @@ class Algorithm:
             graph = self._model.getGraph()
             model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
             print("start  {0}: {1}".format(args[0], args[1]))
-            tag = TagRevenue()
+            tag = TagRevenue(graph)
             model.diffusion(tag)
             print("end  {0}: {1}".format(args[0], args[1]))
             return tag.amount()
