@@ -132,14 +132,13 @@ class DiffusionModel():
         propagatedQueue = Queue()
         for seed in self._seeds:
             logging.debug("Allocate {0} to {1}".format(self._graph.nodes[seed]["desired_set"], seed))
-            for out_neighbor in self._graph.neighbors(seed):
-                propagatedQueue.put((seed, out_neighbor))
+            propagatedQueue.put((None, seed))
 
         logging.info("Allocation is complete.")
         
         while not propagatedQueue.empty():
             src, det = propagatedQueue.get()
-            node_id = src
+            node_id = det
 
             trade = self._user_proxy.adopt(node_id)
             
@@ -165,18 +164,17 @@ class DiffusionModel():
             logging.debug("--------------------------------")
 
             trade["src"] = src
-            trade["det"] = det
+            trade["det"] = node_id
             
             if tagger != None:
                 tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id])
             logging.info("user {0} traded {1}".format(node_id, trade["tradeOff_items"]))
             
-            
-            is_activated  = self._propagate(node_id, det, trade["decision_items"])
-            logging.info("{0} tries to activate {1}: {2}".format(node_id, det, is_activated))
-            if is_activated:
-                logging.debug("{0}'s desired_set: {1}".format(det, self._graph.nodes[det]["desired_set"]))
-                for out_neighbor in self._graph.neighbors(out_neighbor):
+            for out_neighbor in self._graph.neighbors(node_id):
+                is_activated  = self._propagate(node_id, out_neighbor, trade["decision_items"])
+                logging.info("{0} tries to activate {1}: {2}".format(node_id, det, is_activated))
+                if is_activated:
+                    logging.debug("{0}'s desired_set: {1}".format(det, self._graph.nodes[det]["desired_set"]))
                     propagatedQueue.put((node_id, out_neighbor))
                     
     # def save(self, dir_path):
