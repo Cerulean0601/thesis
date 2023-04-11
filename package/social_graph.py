@@ -26,6 +26,7 @@ class SN_Graph(nx.DiGraph):
         super().__init__()
         self.located = located # 原圖是否為無向圖，若為無向圖則重定向為有向圖
         self.topic = node_topic
+        self._shortest_path_length = dict()
 
     def __add__(self, another_G):
         '''
@@ -67,7 +68,8 @@ class SN_Graph(nx.DiGraph):
                         graph.add_edge(det, src)
 
         graph.initAttr()
-        print("Done.")
+        graph._shortest_path_length = dict()
+        print("Done")
         return graph
         
     def _bfs_sampling(self, num_nodes:int = None, roots:list = []):
@@ -221,3 +223,13 @@ class SN_Graph(nx.DiGraph):
     def initAttr(self):
         self._initAllEdges()
         self._initAllNodes()
+
+    def caculate_shortest_path_length(self, src, dest):
+        table = self._shortest_path_length
+        if src not in table:
+            table[src] = dict()
+        
+        if dest not in table[src]:
+            table[src][dest] = nx.shortest_path_length(self, src, dest, weight="weight") 
+
+        return table[src][dest]

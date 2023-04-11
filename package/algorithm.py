@@ -26,6 +26,9 @@ class Algorithm:
         self._belonging = None
         self._limitNum = k
 
+    def setLimitCoupon(self, k):
+        self._limitNum = k
+
     def genAllCoupons(self, price_step:float):
         '''
             Generates a set of all possible coupons.
@@ -194,22 +197,25 @@ class Algorithm:
     
     
     def simulation(self, candidatedCoupons):
-        def parallel(coupons):
-            graph = self._model.getGraph()
-            model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupons)
-            tag = TagRevenue()
-            model.diffusion(tag)
+        def parallel(args):
+            coupon = args[1]
 
+            graph = self._model.getGraph()
+            model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
+            print("start  {0}".format(args[0]))
+            tag = TagRevenue(graph)
+            model.diffusion(tag)
+            print("end  {0}".format(args[0]))
             return tag.amount()
 
         if len(candidatedCoupons) == 0:
             return candidatedCoupons
         
-        revenue = 0
-        coupons = [[c] for c in candidatedCoupons]
+        revenue = 0        
+        coupons = [(i, [candidatedCoupons[i]]) for i in range(len(candidatedCoupons))]
         output = []
 
-        while len(candidatedCoupons) != 0 and len(output) < self._limitNum:
+        while len(candidatedCoupons) != 0 and len(output) <= self._limitNum:
             '''
                 1. Simulate with all candidated coupon
                 2. Get the coupon which can maximize revenue, and delete it from the candidatings
@@ -221,26 +227,26 @@ class Algorithm:
             pool.close()
             pool.join()
 
-            maxMargin = 0
+            maxRevenue = 0
             maxIndex = 0
 
             # find the maximum margin benfit of coupon
             for i in range(len(result)):
-                if result[i]> maxMargin:
-                    maxMargin = result[i]
+                if result[i]> maxRevenue:
+                    maxRevenue = result[i]
                     maxIndex = i
             
             # if these coupons are more benfit than current coupons, add it and update 
-            if maxMargin > revenue:
-                revenue = maxMargin
-                output = coupons[maxIndex]
+            if maxRevenue > revenue:
+                revenue = maxRevenue
+                output = coupons[maxIndex][1]
                 del candidatedCoupons[maxIndex]
-                coupons = [coupons[maxIndex] + [c] for c in candidatedCoupons]
+                coupons = [(i, coupons[maxIndex][1] + [candidatedCoupons[i]]) for i in range(len(candidatedCoupons))]
                 
             else:
                 break
             
-        return output
+        return maxRevenue
     
     def optimalAlgo(self, candidatedCoupons:list):
         def parallel(args):
@@ -260,7 +266,7 @@ class Algorithm:
         i = 0
         for size in range(couponSzie + 1): 
             for comb in combinations(candidatedCoupons, size):
-                couponsPowerset.append((i, comb))
+                couponsPowerset.append((i, list(comb)))
                 i += 1
 
         result = pool.map(parallel, couponsPowerset)
