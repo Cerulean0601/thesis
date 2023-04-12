@@ -125,16 +125,25 @@ class TagAppending(Tagger):
         return max(self.table[group], key=self.table[group].get)
 
 class TagRevenue(Tagger):
-    def __init__(self, graph):
+    def __init__(self, graph, shortest_path_len):
         self._counting = 0
         self._graph = graph
+        self._shortest_path_len = shortest_path_len
 
     def tag(self, params, **kwargs):
         for k, v in kwargs.items():
             params[k] = v
 
         src, det = params["src"], params["det"]
-        expectedProbability = self._graph.caculate_shortest_path_length(src, det) if src != None else 1
+        # if src is None, it is a seed
+        if src != None:
+            if src not in self._shortest_path_len:
+                self._shortest_path_len[src] = dict()
+    
+            if det not in self._shortest_path_len[src]:
+                self._shortest_path_len[src][det] = self._graph.caculate_shortest_path_length(src, det)
+
+        expectedProbability = self._shortest_path_len[src][det] if src != None else 1
         self._counting += params["amount"]*expectedProbability
         return super().tag(params, **kwargs)
 

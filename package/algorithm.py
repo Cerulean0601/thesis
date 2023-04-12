@@ -199,11 +199,10 @@ class Algorithm:
     def simulation(self, candidatedCoupons):
         def parallel(args):
             coupon = args[1]
-
             graph = self._model.getGraph()
             model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
             print("start  {0}".format(args[0]))
-            tag = TagRevenue(graph)
+            tag = TagRevenue(graph, args[2])
             model.diffusion(tag)
             print("end  {0}".format(args[0]))
             return tag.amount()
@@ -211,8 +210,9 @@ class Algorithm:
         if len(candidatedCoupons) == 0:
             return candidatedCoupons
         
-        revenue = 0        
-        coupons = [(i, [candidatedCoupons[i]]) for i in range(len(candidatedCoupons))]
+        revenue = 0
+        shortest_path_length = dict() 
+        coupons = [(i, [candidatedCoupons[i], shortest_path_length]) for i in range(len(candidatedCoupons))]
         output = []
 
         while len(candidatedCoupons) != 0 and len(output) <= self._limitNum:
@@ -222,13 +222,11 @@ class Algorithm:
                 3. Concatenate all of the candidateings with the maximize revenue coupon
             '''
 
-            # pool = ThreadPool(cpu_count())
-            # result = pool.map(parallel, coupons)
-            # pool.close()
-            # pool.join()
-            result = []
-            for args in coupons:
-                result.append(parallel(args))
+            pool = ThreadPool(cpu_count())
+            result = pool.map(parallel, coupons)
+            pool.close()
+            pool.join()
+
             maxRevenue = 0
             maxIndex = 0
 
@@ -256,7 +254,7 @@ class Algorithm:
             graph = self._model.getGraph()
             model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
             print("start  {0}: {1}".format(args[0], args[1]))
-            tag = TagRevenue(graph)
+            tag = TagRevenue(graph, args[2])
             model.diffusion(tag)
             print("end  {0}: {1}".format(args[0], args[1]))
             return tag.amount()
@@ -266,9 +264,10 @@ class Algorithm:
 
         couponsPowerset = []
         i = 0
+        shortest_path_length = dict()
         for size in range(couponSzie + 1): 
             for comb in combinations(candidatedCoupons, size):
-                couponsPowerset.append((i, list(comb)))
+                couponsPowerset.append((i, list(comb), shortest_path_length))
                 i += 1
 
         result = pool.map(parallel, couponsPowerset)
@@ -276,6 +275,6 @@ class Algorithm:
         pool.close()
         pool.join()
         
-        return couponsPowerset[result.index(max(result))]
+        return max(result)
 
         

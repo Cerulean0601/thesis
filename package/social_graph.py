@@ -225,11 +225,4 @@ class SN_Graph(nx.DiGraph):
         self._initAllNodes()
 
     def caculate_shortest_path_length(self, src, dest):
-        table = self._shortest_path_length
-        if src not in table:
-            table[src] = dict()
-        
-        if dest not in table[src]:
-            table[src][dest] = nx.shortest_path_length(self, src, dest, weight="weight") 
-
-        return table[src][dest]
+        return nx.shortest_path_length(self, src, dest, weight="weight")

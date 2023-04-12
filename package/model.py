@@ -167,8 +167,8 @@ class DiffusionModel():
             trade["det"] = node_id
             
             if tagger != None:
-                tagger.tag(trade, node_id=src, node=self._graph.nodes[src])
-            logging.info("user {0} traded {1}".format(src, trade["tradeOff_items"]))
+                tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id])
+            logging.info("user {0} traded {1}".format(node_id, trade["tradeOff_items"]))
             
             for out_neighbor in self._graph.neighbors(node_id):
                 is_activated  = self._propagate(node_id, out_neighbor, trade["decision_items"])
