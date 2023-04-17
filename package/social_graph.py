@@ -2,6 +2,7 @@ import networkx as nx
 import queue
 import random
 import logging
+from copy import deepcopy
 
 from topic import TopicModel
 
@@ -110,8 +111,10 @@ class SN_Graph(nx.DiGraph):
       
     def sampling_subgraph(self, num_iter:int = 1, num_nodes:int = None, roots:list = [], strategy="bfs"):
         subgraph = SN_Graph(self.topic, located=self.convertDirected())
+
         for i in range(num_iter):
-            subgraph += self._bfs_sampling(num_nodes, roots)
+            population = deepcopy(self)
+            subgraph += population._bfs_sampling(num_nodes, roots)
         return subgraph
 
     @staticmethod

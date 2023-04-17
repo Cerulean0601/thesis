@@ -85,12 +85,13 @@ def main():
 
     algo = Algorithm(model,0)
     simluation_times = 5
-    recordFilename = r"./result/myself.txt"
+    recordFilename = r"./result/test.txt"
 
     for k in range(10):
                 
         algo.setLimitCoupon(k)
         for i in range(simluation_times):
+            print("k={0}, times={1}".format(k, i))
             start_time = time()
             candidatedCoupons = algo.genSelfCoupons()
             if k == 0:

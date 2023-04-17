@@ -50,15 +50,15 @@ class Algorithm:
             raise ValueError("Should select the seeds of model before preprocessing.")
         
         subgraph = self._graph.sampling_subgraph(numSampling, roots=self._model.getSeeds())
-
         sub_model = DiffusionModel("Subgraph", 
-                                   copy.deepcopy(subgraph), 
+                                   subgraph, 
                                    self._model.getItemsetHandler(),
                                    self._model.getCoupons(),
                                    self._model.getThreshold()
                                    )
         sub_model._seeds = self._model.getSeeds()
         sub_model.allocate(sub_model._seeds, [self._itemset[id] for id in list(self._itemset.PRICE.keys())])
+
         self._shortestPath(sub_model.getSeeds())
         self._grouping(sub_model)
 
@@ -213,6 +213,9 @@ class Algorithm:
     
     
     def simulation(self, candidatedCoupons):
+        '''
+            simulation for hill-climbing like algorithm
+        '''
         def parallel(args):
             coupon = args[1]
             graph = self._model.getGraph()
@@ -228,8 +231,11 @@ class Algorithm:
         shortest_path_length = dict()
 
         if len(candidatedCoupons) == 0:
-            tag = TagRevenue(self._model.getGraph(), shortest_path_length)
-            self._model.diffusion(tag)
+            graph = self._model.getGraph()
+            tag = TagRevenue(graph, shortest_path_length)
+            model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), [], self._model.getThreshold())
+            model.diffusion(tag)
+
 
             return tag.amount()
         
