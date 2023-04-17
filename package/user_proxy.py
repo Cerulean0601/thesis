@@ -10,11 +10,11 @@ class UsersProxy():
     '''
       使用者的購買行為，包含挑選主商品、額外購買、影響成功後的行為
     '''
-    def __init__(self, graph: SN_Graph, itemset: ItemsetFlyweight, coupons, threhold = 0.0) -> None:
+    def __init__(self, graph: SN_Graph, itemset: ItemsetFlyweight, coupons, threshold = 0.0) -> None:
         self._graph = graph
         self._itemset = itemset
         self._coupons = coupons
-        self._threhold = threhold
+        self._threshold = threshold
 
     def setGraph(self, newGraph:SN_Graph):
         if not isinstance(newGraph, SN_Graph):
@@ -22,8 +22,8 @@ class UsersProxy():
         
         self._graph = newGraph
     
-    def getThrehold(self):
-        return self._threhold
+    def getThreshold(self):
+        return self._threshold
     
     def replaceCoupons(self, coupons):
         self._coupons = coupons
@@ -265,7 +265,7 @@ class UsersProxy():
                 trade["amount"] = trade["tradeOff_items"].price - self._discount(trade["tradeOff_items"], addtional["coupon"])
                 trade["coupon"] = addtional["coupon"]
         
-        if trade["VP"] >= self._threhold:
+        if trade["VP"] >= self._threshold:
             self._graph.nodes[user_id]["adopted_set"] = self._itemset.union(
                                     self._graph.nodes[user_id]["adopted_set"],
                                     trade["tradeOff_items"])

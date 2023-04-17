@@ -52,9 +52,10 @@ class Algorithm:
         subgraph = self._graph.sampling_subgraph(numSampling, roots=self._model.getSeeds())
 
         sub_model = DiffusionModel("Subgraph", 
-                                   subgraph, 
+                                   copy.deepcopy(subgraph), 
                                    self._model.getItemsetHandler(),
-                                   self._model.getUserProxy().getThreshold()
+                                   self._model.getCoupons(),
+                                   self._model.getThreshold()
                                    )
         sub_model._seeds = self._model.getSeeds()
         sub_model.allocate(sub_model._seeds, [self._itemset[id] for id in list(self._itemset.PRICE.keys())])
@@ -159,19 +160,34 @@ class Algorithm:
 
     def genSelfCoupons(self):
         
+        # select seeds if the set is empty
+        seeds = self._model.getSeeds()
+        if not seeds:
+            k = min(self._model._itemset.size, self._model._graph.number_of_nodes())
+
+            # list of the seeds is sorted by out-degree.
+            self._model.selectSeeds(k)
+            seeds = self._model.getSeeds()
+
+        if self._model._graph.nodes[seeds[0]]["desired_set"] == None:
+            # List of single items.
+            items = [self._model._itemset[id] for id in list(self._model._itemset.PRICE.keys())]
+
+            self._model.allocate(seeds, items)
+
         tagger = self._preporcessing()
         mainItemset = tagger.getNext()
         appending = mainItemset.getNext()
-        seeds = self._model.getSeeds()
+        
 
-        result = []
-        for seed in seeds:
-            result.append(self._sumGroupExpTopic(seed))
+        # result = []
+        # for seed in seeds:
+        #     result.append(self._sumGroupExpTopic(seed))
 
-        # pool = ThreadPool()
-        # result = pool.imap(self._sumGroupExpTopic, [seed for seed in seeds])
-        # pool.close()
-        # pool.join()
+        pool = ThreadPool()
+        result = pool.map(self._sumGroupExpTopic, [seed for seed in seeds])
+        pool.close()
+        pool.join()
 
         groupExpTopic = dict()
 
@@ -280,7 +296,7 @@ class Algorithm:
         
         pool.close()
         pool.join()
-        
+
         return max(result)
 
         
