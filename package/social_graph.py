@@ -190,7 +190,7 @@ class SN_Graph(nx.DiGraph):
 
     def _weightingEdge(self, src, det):
         return 1/self.in_degree(det)
-
+    
     def _update_in_edge(self, node):
         for src, det in self.in_edges(node):
             self._weightingEdge(src,det)

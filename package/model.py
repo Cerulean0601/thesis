@@ -136,6 +136,7 @@ class DiffusionModel():
 
         logging.info("Allocation is complete.")
         
+        
         while not propagatedQueue.empty():
             src, det = propagatedQueue.get()
             node_id = det
@@ -176,7 +177,7 @@ class DiffusionModel():
                 if is_activated:
                     logging.debug("{0}'s desired_set: {1}".format(det, self._graph.nodes[det]["desired_set"]))
                     propagatedQueue.put((node_id, out_neighbor))
-                    
+            
     # def save(self, dir_path):
 
     #     filename = dir_path + self.name

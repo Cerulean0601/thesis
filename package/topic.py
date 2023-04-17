@@ -15,6 +15,9 @@ class TopicModel():
         self.number_topics = number_topics
 
     def construct(self, items_file, nodes_file=None):
+        '''
+            construct topic model from tokens through LDA model
+        '''
         def _prepare(file):
             
             path = file.split("/")
@@ -61,9 +64,28 @@ class TopicModel():
             for i in range(bias, len(self._corpus)):
                 bow = self._corpus[i]
                 self._mappingNode[self._nodes_id[i]] = [pair[1] for pair in self._model.get_document_topics(bow, 0)]
-                
-        
 
+    def read_topics(self, node_file=None, items_file=None):
+        '''
+            read topics which have been generated in file. The format of each line is id, topic_1
+            topic_2, topic_3...
+        '''
+        if node_file!= None:
+            with open(node_file, "r") as f:
+                for line in f:
+                    line = line.split(",")
+                    id, topic = line[0], line[1]
+                    topic = [float(t) for t in topic.split(" ")]
+                    self._mappingNode[id] = topic
+
+        if items_file!= None:
+            with open(items_file, "r") as f:
+                for line in f:
+                    line = line.split(",")
+                    id, topic = line[0], line[1]
+                    topic = [float(t) for t in topic.split(" ")]
+                    self._mappingItem[id] = topic
+                    
     def __contains__(self, id):
         return id in self._mappingItem or id in self._mappingNode
     

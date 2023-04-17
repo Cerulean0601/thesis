@@ -33,7 +33,7 @@ from coupon import Coupon
 from utils import getItemsPrice, read_items
 from algorithm import Algorithm
 
-NUM_TOPICS = 3
+NUM_TOPICS = 5
 TOPICS = {
     "Node": {
         "0": [0.9, 0.1, 0.0],
@@ -70,56 +70,51 @@ RELATION = pd.DataFrame.from_dict({
 if __name__ == '__main__':    
     
     test()
-    # notify = Notify(endpoint=NOTIFY_ENDPOINT)
-    # try:
-    nodes = []
-    with open(r"./data/facebook/edges") as f:
-        for line in f:
-            src, dst = line.split(",")
-            dst = dst[:-1] if dst[-1] == "\n" else dst
-            if src not in nodes:
-                nodes.append(src)
-            if dst not in nodes:
-                nodes.append(dst)
-    items = read_items(AMAZON_PATH + "/sample_items.csv")
-
-    topicModel = TopicModel(NUM_TOPICS)
-    topicModel.randomTopic(nodes, items.keys())
-
-    graph = SN_Graph.construct(FACEBOOK_PATH + "/edges", topicModel, located=True)
-
-    relation = ItemRelation()
-    relation.construct(AMAZON_PATH + "/sample_items.csv")
-    itemset = ItemsetFlyweight(getItemsPrice(AMAZON_PATH + "/sample_items.csv"), topicModel, relation)
-
-    model = DiffusionModel("amazon in dblp", graph, itemset, threshold=10**(-5))
-
-
-    algo = Algorithm(model,0)
-    simluation_times = 1
-    recordFilename = r"./result/optimization.txt"
-    for k in range(12):
-                
-        algo.setLimitCoupon(k)
-        for i in range(simluation_times):
-            start_time = time()
-            candidatedCoupons = algo.genAllCoupons(30.0)
-            revenue = algo.optimalAlgo(candidatedCoupons)
-            end_time = time()
+    notify = Notify(endpoint=NOTIFY_ENDPOINT)
+    try:
         
-            with open(recordFilename, "a") as record:
+        items = read_items(AMAZON_PATH + "/sample_items.csv")
+
+        topicModel = TopicModel(NUM_TOPICS)
+        topicModel.read_topics(node_file=FACEBOOK_PATH + "/nodes_with_" + str(NUM_TOPICS) + "_topic")
+        topicModel.randomTopic(items_id=items.keys())
+
+        graph = SN_Graph.construct(FACEBOOK_PATH + "/edges", topicModel, located=False)
+
+        relation = ItemRelation()
+        relation.construct(AMAZON_PATH + "/sample_items.csv")
+        itemset = ItemsetFlyweight(getItemsPrice(AMAZON_PATH + "/sample_items.csv"), topicModel, relation)
+
+        model = DiffusionModel("amazon in dblp", graph, itemset, threshold=10**(-5))
+
+
+        algo = Algorithm(model,0)
+        simluation_times = 5
+        recordFilename = r"./result/optimization.txt"
+        candidatedCoupons = algo.genAllCoupons(30.0)
+
+        for k in range(10):
+                    
+            algo.setLimitCoupon(k)
+            for i in range(simluation_times):
+                start_time = time()
                 
-                record.write("{0}, runtime={1}, revenue={2}, k={3}, times={4}\n".format(
-                    ctime(end_time),
-                    (end_time - start_time),
-                    revenue,
-                    k,
-                    i
-                    ))
+                revenue = algo.optimalAlgo(candidatedCoupons)
+                end_time = time()
+            
+                with open(recordFilename, "a") as record:
+                    
+                    record.write("{0}, runtime={1}, revenue={2}, k={3}, times={4}\n".format(
+                        ctime(end_time),
+                        (end_time - start_time),
+                        revenue,
+                        k,
+                        i
+                        ))
 
         
-    # except Exception as e:
-    #     notify.send("Error: {0}".format(str(e)))
+    except Exception as e:
+        notify.send("Error: {0}".format(str(e)))
     
     
-    # notify.send("Done")
+    notify.send("Done")

@@ -207,12 +207,17 @@ class Algorithm:
             print("end  {0}".format(args[0]))
             return tag.amount()
 
-        if len(candidatedCoupons) == 0:
-            return candidatedCoupons
-        
+        candidatedCoupons = candidatedCoupons[:]
         revenue = 0
-        shortest_path_length = dict() 
-        coupons = [(i, [candidatedCoupons[i], shortest_path_length]) for i in range(len(candidatedCoupons))]
+        shortest_path_length = dict()
+
+        if len(candidatedCoupons) == 0:
+            tag = TagRevenue(self._model.getGraph(), shortest_path_length)
+            self._model.diffusion(tag)
+
+            return tag.amount()
+        
+        coupons = [(i, [candidatedCoupons[i]], shortest_path_length) for i in range(len(candidatedCoupons))]
         output = []
 
         while len(candidatedCoupons) != 0 and len(output) <= self._limitNum:
@@ -241,7 +246,7 @@ class Algorithm:
                 revenue = maxRevenue
                 output = coupons[maxIndex][1]
                 del candidatedCoupons[maxIndex]
-                coupons = [(i, coupons[maxIndex][1] + [candidatedCoupons[i]]) for i in range(len(candidatedCoupons))]
+                coupons = [(i, coupons[maxIndex][1] + [candidatedCoupons[i]], shortest_path_length) for i in range(len(candidatedCoupons))]
                 
             else:
                 break
@@ -260,6 +265,7 @@ class Algorithm:
             return tag.amount()
 
         pool = ThreadPool(cpu_count())
+        candidatedCoupons = candidatedCoupons[:]
         couponSzie = min(len(candidatedCoupons), self._limitNum)
 
         couponsPowerset = []
