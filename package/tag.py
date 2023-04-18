@@ -149,3 +149,19 @@ class TagRevenue(Tagger):
 
     def amount(self):
         return self._counting
+
+class TagActivatedNode(Tagger):
+    def __init__(self):
+        self._count = 0
+
+    def tag(self, params, **kwargs):
+        for k, v in kwargs.items():
+            params[k] = v
+
+        if len(params["node"]["adopted_records"]) == 1:
+            self._count += 1
+
+        return super().tag(params, **kwargs)
+
+    def amount(self):
+        return self._count
