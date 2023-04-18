@@ -222,27 +222,29 @@ class Algorithm:
             coupon = args[1]
             graph = self._model.getGraph()
             model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
+            tagger = Tagger()
+            tagger.setNext(TagRevenue(graph, args[2]))
+            tagger.setNext(TagActivatedNode())
+            model.diffusion(tagger)
 
-            tag = TagRevenue(graph, args[2])
-            model.diffusion(tag)
-
-            return tag.amount()
+            return tagger
 
         candidatedCoupons = candidatedCoupons[:]
-        revenue = 0
         shortest_path_length = dict()
 
         if len(candidatedCoupons) == 0:
             graph = self._model.getGraph()
-            tag = TagRevenue(graph, shortest_path_length)
+            tagger = Tagger()
+            tagger.setNext(TagRevenue(graph, shortest_path_length))
+            tagger.setNext(TagActivatedNode())
             model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), [], self._model.getThreshold())
-            model.diffusion(tag)
-
-
-            return tag.amount()
+            model.diffusion(tagger)
+            return [],tagger
         
         coupons = [(i, [candidatedCoupons[i]], shortest_path_length) for i in range(len(candidatedCoupons))]
-        output = []
+        output = [] # the coupon set which is maximum revenue 
+        revenue = 0
+        tagger = None
 
         while len(candidatedCoupons) != 0 and len(output) <= self._limitNum:
             '''
@@ -256,37 +258,39 @@ class Algorithm:
             pool.close()
             pool.join()
 
-            maxRevenue = 0
+            maxMargin = 0
             maxIndex = 0
 
             # find the maximum margin benfit of coupon
             for i in range(len(result)):
-                if result[i]> maxRevenue:
-                    maxRevenue = result[i]
+                if result[i]["TagRevenue"].amount() > maxMargin:
+                    maxMargin = result[i]["TagRevenue"].amount()
                     maxIndex = i
             
             # if these coupons are more benfit than current coupons, add it and update 
-            if maxRevenue > revenue:
-                revenue = maxRevenue
+            if maxMargin > revenue:
                 output = coupons[maxIndex][1]
+                revenue = maxMargin
+                tagger = result[maxIndex]
                 del candidatedCoupons[maxIndex]
                 coupons = [(i, coupons[maxIndex][1] + [candidatedCoupons[i]], shortest_path_length) for i in range(len(candidatedCoupons))]
                 
             else:
                 break
             
-        return maxRevenue
+        return output, tagger
     
     def optimalAlgo(self, candidatedCoupons:list):
         def parallel(args):
             coupon = args[1]
             graph = self._model.getGraph()
             model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
-
-            tag = TagRevenue(graph, args[2])
+            tag = Tagger()
+            tag.setNTagRevenue(graph, args[2])
+            tag.setNext(TagActivatedNode())
             model.diffusion(tag)
 
-            return tag.amount()
+            return tag
 
         pool = ThreadPool(cpu_count())
         candidatedCoupons = candidatedCoupons[:]

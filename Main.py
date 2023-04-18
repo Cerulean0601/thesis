@@ -85,7 +85,7 @@ def main():
 
     algo = Algorithm(model,0)
     simluation_times = 10
-    recordFilename = r"./result/test_greedy.txt"
+    performanceFile = r"./result/test_greedy.txt"
     candidatedCoupons = algo.genAllCoupons(30.0)
 
     for k in range(10):
@@ -96,21 +96,26 @@ def main():
             start_time = time()
             
             if k == 0:
-                revenue = algo.simulation([])
+                tagger = algo.simulation([])
             else:
-                revenue = algo.simulation(candidatedCoupons)
+                tagger = algo.simulation(candidatedCoupons)
+
             end_time = time()
         
-            with open(recordFilename, "a") as record:
+            revenue = tagger["TagRevenue"].amount()
+            numActivedNode = tagger["TagActivatedNode"].amount()
+
+            with open(performanceFile, "a") as record:
                 
-                record.write("{0},runtime={1},revenue={2},k={3},times={4}\n".format(
+                record.write("{0},runtime={1},revenue={2},numActivedNode={3},k={4},times={5}\n".format(
                     ctime(end_time),
                     (end_time - start_time),
+                    numActivedNode,
                     revenue,
                     k,
                     i
                     ))
-                
+                    
 if __name__ == '__main__':    
     
     test()
