@@ -96,9 +96,9 @@ def main():
             start_time = time()
             
             if k == 0:
-                tagger = algo.simulation([])
+                outputCoupons, tagger = algo.simulation([])
             else:
-                tagger = algo.simulation(candidatedCoupons)
+                outputCoupons, tagger = algo.simulation(candidatedCoupons)
 
             end_time = time()
         
@@ -112,10 +112,11 @@ def main():
                     (end_time - start_time),
                     numActivedNode,
                     revenue,
+                    numActivedNode,
                     k,
                     i
                     ))
-                    
+
 if __name__ == '__main__':    
     
     test()
