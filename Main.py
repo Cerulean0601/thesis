@@ -84,8 +84,9 @@ def main():
 
 
     algo = Algorithm(model,0)
-    simluation_times = 5
-    recordFilename = r"./result/test.txt"
+    simluation_times = 10
+    recordFilename = r"./result/test_greedy.txt"
+    candidatedCoupons = algo.genAllCoupons(30.0)
 
     for k in range(10):
                 
@@ -93,7 +94,7 @@ def main():
         for i in range(simluation_times):
             print("k={0}, times={1}".format(k, i))
             start_time = time()
-            candidatedCoupons = algo.genSelfCoupons()
+            
             if k == 0:
                 revenue = algo.simulation([])
             else:

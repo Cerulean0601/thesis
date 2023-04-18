@@ -50,6 +50,8 @@ class Algorithm:
             raise ValueError("Should select the seeds of model before preprocessing.")
         
         subgraph = self._graph.sampling_subgraph(numSampling, roots=self._model.getSeeds())
+        
+        # The subgraph has been sampled with deepcopy
         sub_model = DiffusionModel("Subgraph", 
                                    subgraph, 
                                    self._model.getItemsetHandler(),
@@ -220,10 +222,10 @@ class Algorithm:
             coupon = args[1]
             graph = self._model.getGraph()
             model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
-            print("start  {0}".format(args[0]))
+
             tag = TagRevenue(graph, args[2])
             model.diffusion(tag)
-            print("end  {0}".format(args[0]))
+
             return tag.amount()
 
         candidatedCoupons = candidatedCoupons[:]
@@ -280,10 +282,10 @@ class Algorithm:
             coupon = args[1]
             graph = self._model.getGraph()
             model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
-            print("start  {0}: {1}".format(args[0], args[1]))
+
             tag = TagRevenue(graph, args[2])
             model.diffusion(tag)
-            print("end  {0}: {1}".format(args[0], args[1]))
+
             return tag.amount()
 
         pool = ThreadPool(cpu_count())
