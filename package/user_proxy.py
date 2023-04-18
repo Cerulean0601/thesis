@@ -270,7 +270,7 @@ class UsersProxy():
                                     self._graph.nodes[user_id]["adopted_set"],
                                     trade["tradeOff_items"])
 
-            self._graph.nodes[user_id]["adopted_records"].extend([trade["tradeOff_items"], trade["coupon"], trade["amount"]])
+            self._graph.nodes[user_id]["adopted_records"].append([trade["tradeOff_items"], trade["coupon"], trade["amount"]])
             return trade
         else:
             return None

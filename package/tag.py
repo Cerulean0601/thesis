@@ -32,6 +32,9 @@ class Tagger:
         ''' implement in child class'''
         if self._next:
             self._next.tag(param, **kwargs)
+    
+    def __getitem__(self, key):
+        return self._map[key]
 
 class TagMainItemset(Tagger):
     def __init__(self):
@@ -145,7 +148,7 @@ class TagRevenue(Tagger):
 
         expectedProbability = self._shortest_path_len[src][det] if src != None else 1
         self._counting += params["amount"]*expectedProbability
-        return super().tag(params, **kwargs)
+        super().tag(params, **kwargs)
 
     def amount(self):
         return self._counting
@@ -161,7 +164,7 @@ class TagActivatedNode(Tagger):
         if len(params["node"]["adopted_records"]) == 1:
             self._count += 1
 
-        return super().tag(params, **kwargs)
+        super().tag(params, **kwargs)
 
     def amount(self):
         return self._count
