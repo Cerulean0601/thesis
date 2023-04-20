@@ -84,11 +84,11 @@ def main():
 
 
     algo = Algorithm(model,0)
-    simluation_times = 10
+    simluation_times = 5
     performanceFile = r"./result/test_greedy.txt"
     candidatedCoupons = algo.genAllCoupons(30.0)
 
-    for k in range(10):
+    for k in range(1,10):
                 
         algo.setLimitCoupon(k)
         for i in range(simluation_times):
@@ -103,15 +103,15 @@ def main():
             end_time = time()
         
             revenue = tagger["TagRevenue"].amount()
-            numActivedNode = tagger["TagActivatedNode"].amount()
+            #numActivedNode = tagger["TagActivatedNode"].amount()
 
             with open(performanceFile, "a") as record:
                 
-                record.write("{0},runtime={1},revenue={2},numActivedNode={3},k={4},times={5}\n".format(
+                record.write("{0},runtime={1},revenue={2},k={3},times={4}\n".format(
                     ctime(end_time),
                     (end_time - start_time),
                     revenue,
-                    numActivedNode,
+                    #numActivedNode,
                     k,
                     i
                     ))

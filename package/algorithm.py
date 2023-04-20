@@ -213,21 +213,22 @@ class Algorithm:
         
         return coupons
     
+    def _parallel(self, args):
+        coupon = args[1]
+        graph = self._model.getGraph()
+        model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
+        tagger = Tagger()
+        tagger.setNext(TagRevenue(graph, args[2]))
+        #tagger.setNext(TagActivatedNode())
+        model.diffusion(tagger)
+
+        return tagger
     
     def simulation(self, candidatedCoupons):
         '''
             simulation for hill-climbing like algorithm
         '''
-        def parallel(args):
-            coupon = args[1]
-            graph = self._model.getGraph()
-            model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
-            tagger = Tagger()
-            tagger.setNext(TagRevenue(graph, args[2]))
-            tagger.setNext(TagActivatedNode())
-            model.diffusion(tagger)
-
-            return tagger
+        
 
         candidatedCoupons = candidatedCoupons[:]
         shortest_path_length = dict()
@@ -236,7 +237,7 @@ class Algorithm:
             graph = self._model.getGraph()
             tagger = Tagger()
             tagger.setNext(TagRevenue(graph, shortest_path_length))
-            tagger.setNext(TagActivatedNode())
+            #tagger.setNext(TagActivatedNode())
             model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), [], self._model.getThreshold())
             model.diffusion(tagger)
             return [],tagger
@@ -246,21 +247,26 @@ class Algorithm:
         revenue = 0
         tagger = None
 
-        while len(candidatedCoupons) != 0 and len(output) <= self._limitNum:
+        while len(candidatedCoupons) != 0 and len(output) < self._limitNum:
             '''
                 1. Simulate with all candidated coupon
                 2. Get the coupon which can maximize revenue, and delete it from the candidatings
                 3. Concatenate all of the candidateings with the maximize revenue coupon
             '''
 
-            pool = ThreadPool(cpu_count())
-            result = pool.map(parallel, coupons)
+            pool = ThreadPool(processes=3)
+            result = pool.map(self._parallel, coupons)
             pool.close()
             pool.join()
 
             maxMargin = 0
             maxIndex = 0
 
+            # check whether race condition
+            for i in range(len(result)):
+                if id(result[i]["TagRevenue"]) != id(result[i]._next):
+                    raise Exception("Race condition")
+                
             # find the maximum margin benfit of coupon
             for i in range(len(result)):
                 if result[i]["TagRevenue"].amount() > maxMargin:
@@ -287,7 +293,7 @@ class Algorithm:
             model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
             tag = Tagger()
             tag.setNTagRevenue(graph, args[2])
-            tag.setNext(TagActivatedNode())
+            #tag.setNext(TagActivatedNode())
             model.diffusion(tag)
 
             return tag

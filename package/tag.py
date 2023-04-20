@@ -3,12 +3,12 @@ import logging
 import networkx as nx
 
 class Tagger:
-
-    _next = None
-    name = ""
-    _params = dict()
-    _map = dict()
-
+    def __init__(self):
+        self._next = None
+        self.name = ""
+        self._params = dict()
+        self._map = dict()
+        
     def setNext(self, tag):
         
         lastObj = self
