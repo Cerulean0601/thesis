@@ -84,37 +84,42 @@ def main():
 
 
     algo = Algorithm(model,0)
-    simluation_times = 5
-    performanceFile = r"./result/test_greedy.txt"
+    simluation_times = 10
+    performanceFile = r"./result/optimization.txt"
     candidatedCoupons = algo.genAllCoupons(30.0)
 
-    for k in range(1,10):
+    for k in range(0,12):
                 
         algo.setLimitCoupon(k)
         for i in range(simluation_times):
             print("k={0}, times={1}".format(k, i))
             start_time = time()
             
-            if k == 0:
-                outputCoupons, tagger = algo.simulation([])
-            else:
-                outputCoupons, tagger = algo.simulation(candidatedCoupons)
-
+            # if k == 0:
+            #     outputCoupons, tagger = algo.simulation([])
+            # else:
+            #     candidatedCoupons = algo.genSelfCoupons()
+            #     outputCoupons, tagger = algo.simulation(candidatedCoupons)
+            outputCoupons, tagger = algo.optimalAlgo(candidatedCoupons)
             end_time = time()
         
             revenue = tagger["TagRevenue"].amount()
-            #numActivedNode = tagger["TagActivatedNode"].amount()
+            numActivedNode = tagger["TagActivatedNode"].amount()
 
             with open(performanceFile, "a") as record:
                 
-                record.write("{0},runtime={1},revenue={2},k={3},times={4}\n".format(
+                record.write("{0},runtime={1},revenue={2},num_activated_node={3},k={4},times={5}\n".format(
                     ctime(end_time),
                     (end_time - start_time),
                     revenue,
-                    #numActivedNode,
+                    numActivedNode,
                     k,
                     i
                     ))
+                
+                for c in outputCoupons:
+                    record.write(str(c) + "\n")
+                record.write("\n")
                     
 if __name__ == '__main__':    
     
