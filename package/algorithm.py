@@ -44,7 +44,7 @@ class Algorithm:
     
         return coupons
 
-    def _preporcessing(self):
+    def _preprocessing(self):
         numSampling = 5
         if len(self._model.getSeeds()) == 0:
             raise ValueError("Should select the seeds of model before preprocessing.")
@@ -58,9 +58,11 @@ class Algorithm:
                                    self._model.getCoupons(),
                                    self._model.getThreshold()
                                    )
-        sub_model._seeds = self._model.getSeeds()
+        
+        sub_model._seeds = copy.deepcopy(self._model.getSeeds())
         sub_model.allocate(sub_model._seeds, [self._itemset[id] for id in list(self._itemset.PRICE.keys())])
 
+        
         self._shortestPath(sub_model.getSeeds())
         self._grouping(sub_model)
 
@@ -177,7 +179,7 @@ class Algorithm:
 
             self._model.allocate(seeds, items)
 
-        tagger = self._preporcessing()
+        tagger = self._preprocessing()
         mainItemset = tagger.getNext()
         appending = mainItemset.getNext()
         
@@ -213,40 +215,35 @@ class Algorithm:
         
         return coupons
     
+    def _parallel(self, args):
+        coupon = args[1]
+        graph = self._model.getGraph()
+        model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
+        tagger = Tagger()
+        tagger.setNext(TagRevenue(graph, args[2]))
+        tagger.setNext(TagActivatedNode())
+        model.diffusion(tagger)
+
+        return tagger
     
     def simulation(self, candidatedCoupons):
         '''
             simulation for hill-climbing like algorithm
         '''
-        def parallel(args):
-            coupon = args[1]
-            graph = self._model.getGraph()
-            model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
-            tagger = Tagger()
-            tagger.setNext(TagRevenue(graph, args[2]))
-            tagger.setNext(TagActivatedNode())
-            model.diffusion(tagger)
-
-            return tagger
+        
 
         candidatedCoupons = candidatedCoupons[:]
         shortest_path_length = dict()
 
         if len(candidatedCoupons) == 0:
-            graph = self._model.getGraph()
-            tagger = Tagger()
-            tagger.setNext(TagRevenue(graph, shortest_path_length))
-            tagger.setNext(TagActivatedNode())
-            model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), [], self._model.getThreshold())
-            model.diffusion(tagger)
-            return [],tagger
+            return [], self._parallel((0,[],shortest_path_length))
         
         coupons = [(i, [candidatedCoupons[i]], shortest_path_length) for i in range(len(candidatedCoupons))]
         output = [] # the coupon set which is maximum revenue 
         revenue = 0
         tagger = None
 
-        while len(candidatedCoupons) != 0 and len(output) <= self._limitNum:
+        while len(candidatedCoupons) != 0 and len(output) < self._limitNum:
             '''
                 1. Simulate with all candidated coupon
                 2. Get the coupon which can maximize revenue, and delete it from the candidatings
@@ -254,13 +251,13 @@ class Algorithm:
             '''
 
             pool = ThreadPool(cpu_count())
-            result = pool.map(parallel, coupons)
+            result = pool.map(self._parallel, coupons)
             pool.close()
             pool.join()
 
             maxMargin = 0
             maxIndex = 0
-
+                
             # find the maximum margin benfit of coupon
             for i in range(len(result)):
                 if result[i]["TagRevenue"].amount() > maxMargin:
@@ -281,16 +278,6 @@ class Algorithm:
         return output, tagger
     
     def optimalAlgo(self, candidatedCoupons:list):
-        def parallel(args):
-            coupon = args[1]
-            graph = self._model.getGraph()
-            model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
-            tag = Tagger()
-            tag.setNTagRevenue(graph, args[2])
-            tag.setNext(TagActivatedNode())
-            model.diffusion(tag)
-
-            return tag
 
         pool = ThreadPool(cpu_count())
         candidatedCoupons = candidatedCoupons[:]
@@ -304,11 +291,19 @@ class Algorithm:
                 couponsPowerset.append((i, list(comb), shortest_path_length))
                 i += 1
 
-        result = pool.map(parallel, couponsPowerset)
+        result = pool.map(self._parallel, couponsPowerset)
         
         pool.close()
         pool.join()
+        
+        maxRevenue = 0
+        maxIndex = 0
 
-        return max(result)
+        for i in range(len(result)):
+            if result[i]["TagRevenue"].amount() > maxRevenue:
+                maxRevenue = result[i]["TagRevenue"].amount()
+                maxIndex = i
+
+        return couponsPowerset[maxIndex][1], result[maxIndex]
 
         
