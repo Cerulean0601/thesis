@@ -26,22 +26,7 @@ class DiffusionModel():
         self._coupons = coupons
         self._user_proxy = UsersProxy(self._graph, self._itemset, self._coupons, threshold)
         self._seeds = []
-        
-    def getRevenue(self) -> list:
-
-        def getEachNodeRevenue(node):
-            records_len = len(node["adopted_records"])
-            acc = 0
-            for i in range(2, records_len, 3):
-                acc += node["adopted_records"][i]
             
-            return acc
-
-        pool = ThreadPool()
-        result = pool.map(getEachNodeRevenue, self._graph.nodes)
-        pool.close()
-        return result
-    
     def getSeeds(self):
         return self._seeds
 
@@ -139,7 +124,6 @@ class DiffusionModel():
 
         logging.info("Allocation is complete.")
         
-        
         while not propagatedQueue.empty():
             src, det = propagatedQueue.get()
             node_id = det
@@ -180,7 +164,7 @@ class DiffusionModel():
                 if is_activated:
                     logging.debug("{0}'s desired_set: {1}".format(det, self._graph.nodes[det]["desired_set"]))
                     propagatedQueue.put((node_id, out_neighbor))
-            
+
     # def save(self, dir_path):
 
     #     filename = dir_path + self.name

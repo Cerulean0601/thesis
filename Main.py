@@ -85,8 +85,8 @@ def main():
 
     algo = Algorithm(model,0)
     simluation_times = 10
-    performanceFile = r"./result/optimization.txt"
-    candidatedCoupons = algo.genAllCoupons(30.0)
+    performanceFile = r"./result/self.txt"
+    
 
     for k in range(0,12):
                 
@@ -95,12 +95,15 @@ def main():
             print("k={0}, times={1}".format(k, i))
             start_time = time()
             
-            # if k == 0:
-            #     outputCoupons, tagger = algo.simulation([])
-            # else:
-            #     candidatedCoupons = algo.genSelfCoupons()
-            #     outputCoupons, tagger = algo.simulation(candidatedCoupons)
-            outputCoupons, tagger = algo.optimalAlgo(candidatedCoupons)
+            if k == 0:
+                outputCoupons, tagger = algo.simulation([])
+            else:
+                candidatedCoupons = []
+                while candidatedCoupons != []:
+                    candidatedCoupons = algo.genSelfCoupons()
+
+                outputCoupons, tagger = algo.simulation(candidatedCoupons)
+
             end_time = time()
         
             revenue = tagger["TagRevenue"].amount()
@@ -124,7 +127,7 @@ def main():
                     
 if __name__ == '__main__':    
     
-    test()
+    #test()
     NOTIFY = False
 
     if NOTIFY:

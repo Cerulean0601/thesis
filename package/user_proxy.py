@@ -236,6 +236,9 @@ class UsersProxy():
 
                 None: 未發生購買行為
         '''
+        if user_id == "2543":
+            print(end="")
+            
         logging.debug("Adopt Main Itemset")
         mainItemset = self._adoptMainItemset(user_id)
 
@@ -255,7 +258,7 @@ class UsersProxy():
         trade["coupon"] = None
         trade["VP"] = mainItemset["VP"]
         #logging.info("user {0} choose main itemset {1}.".format(user_id, mainItemset["items"]))
-        if self._coupons != None or len(self._coupons) != 0:
+        if self._coupons != None and len(self._coupons) != 0:
             logging.info("Adopt Addtional Itemset")
             addtional = self._adoptAddtional(user_id, mainItemset["items"])
             if trade["VP"] < addtional["VP"]:

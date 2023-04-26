@@ -215,15 +215,75 @@ class Algorithm:
         
         return coupons
     
+    def genModifiedGreedyCoupon(self, price_step):
+        
+        # select seeds if the set is empty
+        seeds = self._model.getSeeds()
+        if not seeds:
+            k = min(self._model._itemset.size, self._model._graph.number_of_nodes())
+
+            # list of the seeds is sorted by out-degree.
+            self._model.selectSeeds(k)
+            seeds = self._model.getSeeds()
+
+        if self._model._graph.nodes[seeds[0]]["desired_set"] == None:
+            # List of single items.
+            items = [self._model._itemset[id] for id in list(self._model._itemset.PRICE.keys())]
+
+            self._model.allocate(seeds, items)
+
+        tagger = self._preprocessing()
+        mainItemset = tagger.getNext()
+        appending = mainItemset.getNext()
+        
+
+        # result = []
+        # for seed in seeds:
+        #     result.append(self._sumGroupExpTopic(seed))
+
+        pool = ThreadPool()
+        result = pool.map(self._sumGroupExpTopic, [seed for seed in seeds])
+        pool.close()
+        pool.join()
+
+        groupExpTopic = dict()
+
+        for i in range(len(seeds)):
+            groupExpTopic[seeds[i]] = result[i]
+
+        coupons = []
+        for group in self._model.getSeeds():
+            maxExceptMain = self._itemset[mainItemset.maxExcepted(group)]
+            maxAppendingID = appending.maxExcepted(group)
+            if maxAppendingID == None:
+                continue
+
+            maxExceptAppending = self._itemset[maxAppendingID]
+
+            for accItemset in self._getAccItemset(maxExceptMain, maxExceptAppending):
+                for accThreshold in self._getAccThreshold(maxExceptMain, accItemset):
+                    all_items = " ".join(list(self._itemset.PRICE.keys())) 
+                    disItemset = self._itemset.difference(self._itemset[all_items], maxExceptMain)
+                    for discount in np.arange(5 ,disItemset.price, price_step):
+                        coupons.append(Coupon(accThreshold, accItemset, discount, disItemset))
+        
+        return coupons
+    
     def _parallel(self, args):
         coupon = args[1]
-        graph = self._model.getGraph()
-        model = DiffusionModel("", copy.deepcopy(graph), self._model.getItemsetHandler(), coupon, self._model.getThreshold())
+        graph = copy.deepcopy(self._model.getGraph())
+        model = DiffusionModel("", graph, self._model.getItemsetHandler(), coupon, self._model.getThreshold())
         tagger = Tagger()
         tagger.setNext(TagRevenue(graph, args[2]))
         tagger.setNext(TagActivatedNode())
         model.diffusion(tagger)
-
+        count = [0]*5
+        for node, attr in graph.nodes(data=True):
+            l = len(attr["adopted_records"])
+            if len(count) < l:
+                count.extend([0]*(l-len(count) + 1))
+            count[l] += 1
+        print(count)
         return tagger
     
     def simulation(self, candidatedCoupons):
@@ -231,7 +291,6 @@ class Algorithm:
             simulation for hill-climbing like algorithm
         '''
         
-
         candidatedCoupons = candidatedCoupons[:]
         shortest_path_length = dict()
 

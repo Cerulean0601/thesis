@@ -163,9 +163,9 @@ class SN_Graph(nx.DiGraph):
             if len(topNodes) < k:
                 insert(topNodes, pair)
             elif len(topNodes) == k and pair[1] > topNodes[-1][1]:
-                topNodes.pop(-1)
                 insert(topNodes, pair)
-                
+                topNodes.pop(-1)
+
         return topNodes
     
     def convertDirected(self):
