@@ -11,6 +11,7 @@ import multiprocessing
 import copy 
 from itertools import combinations
 from os import cpu_count
+import random, math
 
 from tag import *
 from itemset import Itemset
@@ -277,13 +278,13 @@ class Algorithm:
         tagger.setNext(TagRevenue(graph, args[2]))
         tagger.setNext(TagActivatedNode())
         model.diffusion(tagger)
-        count = [0]*5
-        for node, attr in graph.nodes(data=True):
-            l = len(attr["adopted_records"])
-            if len(count) < l:
-                count.extend([0]*(l-len(count) + 1))
-            count[l] += 1
-        print(count)
+        # count = [0]*5
+        # for node, attr in graph.nodes(data=True):
+        #     l = len(attr["adopted_records"])
+        #     if len(count) < l:
+        #         count.extend([0]*(l-len(count) + 1))
+        #     count[l] += 1
+        # print(count)
         return tagger
     
     def simulation(self, candidatedCoupons):
@@ -364,5 +365,69 @@ class Algorithm:
                 maxIndex = i
 
         return couponsPowerset[maxIndex][1], result[maxIndex]
+    
+    def _move(self, current_solution, candidated):
+        neighbors_solution = current_solution[:]
 
-        
+        p = random.uniform(0, 1)
+        if p < 1/3:
+            # remove coupon from current solution
+            pop_index = random.randint(0, len(neighbors_solution)-1)
+            neighbors_solution.pop(pop_index)
+
+        elif p >= 1/3 and p < 2/3:
+            # swap coupon
+            while(True):
+                replace_index = random.randint(0, len(neighbors_solution)-1)
+                from_index = random.randint(0, len(candidated)-1)
+                if candidated[from_index] not in neighbors_solution:
+                    neighbors_solution[replace_index] = candidated[from_index]
+                    break
+        else:
+            # add coupon to current solution
+            while(True):
+                add_index = random.randint(0, len(neighbors_solution)-1)
+                if candidated[add_index] not in neighbors_solution:
+                    neighbors_solution.append(candidated[add_index])
+                    break
+
+        return neighbors_solution
+
+    def simulated_annealing(self, candidatedCoupons, initial_temperature=10000, cooling_rate=2, number_inner_iter=1000, stopping_temperature=1000):
+
+        current_solution = []
+        current_temperature = initial_temperature
+        # the key is the combination of index of candidatedCoupons with increasing, 
+        # and the value is the reverse of result in whole diffusion.
+        count_inner_iter = 0
+        couponSzie = min(len(candidatedCoupons), self._limitNum)
+        shortest_path_length = dict()
+
+        while current_temperature > stopping_temperature:
+
+            new_solution = []
+            while len(new_solution) <= couponSzie:
+                new_solution = self._move(current_solution, candidatedCoupons)
+
+            pool = ThreadPool(cpu_count())
+            args = [("current", current_solution, shortest_path_length), ("new", new_solution, shortest_path_length)]
+            result = pool.map(self._parallel, args)
+            pool.close()
+            pool.join()
+
+            # objective function(new_solution) - objective function(current_solution)
+            delta = result[1] - result[0]
+
+            if delta > 0:
+                current_solution = new_solution
+            else:
+                acceptance_probability = math.exp(delta / current_temperature)
+                if random.random() < acceptance_probability:
+                    current_solution = new_solution
+            
+            count_inner_iter += 1
+            if count_inner_iter > number_inner_iter:
+                current_temperature -= cooling_rate
+                count_inner_iter = 0
+
+        return current_solution
