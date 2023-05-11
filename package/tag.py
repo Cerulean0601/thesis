@@ -137,8 +137,8 @@ class TagRevenue(Tagger):
     def tag(self, params, **kwargs):
 
         self.setParams(params, **kwargs)
-
-        src, det = self._params["src"], self._params["det"]
+        
+        src, det = self._params["belonging"]["det"], self._params["det"]
         # if src is None, it is a seed
         if src != None:
             if src not in self._shortest_path_len:

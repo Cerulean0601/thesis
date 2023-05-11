@@ -114,7 +114,6 @@ def main():
                 record.write("{0},runtime={1},revenue={2},num_activated_node={3},k={4},times={5}\n".format(
                     ctime(end_time),
                     (end_time - start_time),
-                    numActivedNode,
                     revenue,
                     numActivedNode,
                     k,

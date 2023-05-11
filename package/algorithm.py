@@ -53,16 +53,15 @@ class Algorithm:
         subgraph = self._graph.sampling_subgraph(numSampling, roots=self._model.getSeeds())
         
         # The subgraph has been sampled with deepcopy
-        sub_model = DiffusionModel("Subgraph", 
-                                   subgraph, 
-                                   self._model.getItemsetHandler(),
-                                   self._model.getCoupons(),
-                                   self._model.getThreshold()
-                                   )
-        
-        sub_model._seeds = copy.deepcopy(self._model.getSeeds())
-        sub_model.allocate(sub_model._seeds, [self._itemset[id] for id in list(self._itemset.PRICE.keys())])
-
+        # sub_model = DiffusionModel("Subgraph", 
+        #                            subgraph,
+        #                            self._model.getItemsetHandler(),
+        #                            self._model.getCoupons(),
+        #                            self._model.getThreshold()
+        #                            )
+        # sub_model._seeds = copy.deepcopy(self._model.getSeeds())
+        # sub_model.allocate(sub_model._seeds, [self._itemset[id] for id in list(self._itemset.PRICE.keys())])
+        sub_model = copy.deepcopy(self._model)
         
         self._shortestPath(sub_model.getSeeds())
         self._grouping(sub_model)
@@ -122,9 +121,13 @@ class Algorithm:
         groupingNodes = (node for node in self._belonging.keys() if self._belonging[node] == group)
 
         expectedTopic = [0]*topic_size
+        normExpected = dict()
+        for group, expectedGroup in self._expected.items():
+                normExpected[group] = sum(expectedGroup.values())
+
         for node in groupingNodes:
             for t in range(topic_size):
-                expectedTopic[t] += self._graph.nodes[node]["topic"][t]*self._expected[group][node]
+                expectedTopic[t] += self._graph.nodes[node]["topic"][t]*(self._expected[group][node]/normExpected[group])
         
         return expectedTopic
         # topic = []
@@ -201,11 +204,12 @@ class Algorithm:
 
         coupons = []
         for group in self._model.getSeeds():
-            maxExceptMain = self._itemset[mainItemset.maxExcepted(group)]
+            maxExceptMainID = mainItemset.maxExcepted(group)
             maxAppendingID = appending.maxExcepted(group)
-            if maxAppendingID == None:
-                continue
+            if not maxAppendingID or not maxExceptMainID:
+                raise ValueError("The main itemset or appendings of group {0} is empty".format(group))
 
+            maxExceptMain = self._itemset[maxExceptMainID]
             maxExceptAppending = self._itemset[maxAppendingID]
 
             for accItemset in self._getAccItemset(maxExceptMain, maxExceptAppending):
@@ -416,18 +420,21 @@ class Algorithm:
             pool.join()
 
             # objective function(new_solution) - objective function(current_solution)
-            delta = result[1] - result[0]
+            delta = result[1]["TagRevenue"].amount() - result[0]["TagRevenue"].amount()
+            tagger = result[0]
 
             if delta > 0:
                 current_solution = new_solution
+                tagger = result[1]
             else:
                 acceptance_probability = math.exp(delta / current_temperature)
                 if random.random() < acceptance_probability:
                     current_solution = new_solution
-            
+                    tagger = result[1]
+                    
             count_inner_iter += 1
             if count_inner_iter > number_inner_iter:
                 current_temperature -= cooling_rate
                 count_inner_iter = 0
 
-        return current_solution
+        return current_solution, tagger

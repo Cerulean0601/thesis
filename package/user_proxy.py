@@ -235,10 +235,7 @@ class UsersProxy():
                     amount 交易金額，若有搭配優惠方案則已扣除折抵金額。
 
                 None: 未發生購買行為
-        '''
-        if user_id == "2543":
-            print(end="")
-            
+        ''' 
         logging.debug("Adopt Main Itemset")
         mainItemset = self._adoptMainItemset(user_id)
 
