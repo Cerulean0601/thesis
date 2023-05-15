@@ -1,7 +1,4 @@
 
-from itemset import ItemsetFlyweight
-from social_graph import SN_Graph
-from coupon import Coupon
 from networkx import shortest_path_length
 import pandas as pd
 import logging
@@ -12,11 +9,15 @@ import copy
 from itertools import combinations
 from os import cpu_count
 import random, math
+from operator import add
 
-from tag import *
-from itemset import Itemset
-from utils import dot
-from model import DiffusionModel
+from package.tag import *
+from package.itemset import Itemset
+from package.utils import dot, max_product_path
+from package.model import DiffusionModel
+from package.itemset import ItemsetFlyweight
+from package.social_graph import SN_Graph
+from package.coupon import Coupon
 
 class Algorithm:
     def __init__(self, model, k):
@@ -48,7 +49,7 @@ class Algorithm:
     def _preprocessing(self):
         numSampling = 5
         if len(self._model.getSeeds()) == 0:
-            raise ValueError("Should select the seeds of model before preprocessing.")
+            raise ValueError("Should 2wsaZ the seeds of model before preprocessing.")
         
         subgraph = self._graph.sampling_subgraph(numSampling, roots=self._model.getSeeds())
         
@@ -274,6 +275,20 @@ class Algorithm:
         
         return coupons
     
+    def dynamicProgramming(self, candidatedCoupons):
+        coupon_set = []
+        limit_size = min(self._limitNum, len(candidatedCoupons))
+        for size in range(limit_size + 1):
+            for comb_coupos in combinations(candidatedCoupons, size):
+                # comb_coupos is tuple type
+                coupon_set.append(list(comb_coupos))
+
+        '''
+        init CP, adopt table for users where the size of coupon set is one, and caculate revenue
+        row is desired set of a user, and column is the coupon
+
+        if the size of coupon set is more than one, CP(D, C)=max(CP(D,c1),CP(D,c2)
+        '''
     def _parallel(self, args):
         coupon = args[1]
         graph = copy.deepcopy(self._model.getGraph())
@@ -438,3 +453,142 @@ class Algorithm:
                 count_inner_iter = 0
 
         return current_solution, tagger
+    
+class DynamicProgram:
+    def __init__(self, model, k):
+        '''
+        NOTE: This class will modify the graph of model. 
+        If you don't want to modify, should be deep copy before passing it
+        '''
+        self._model = model
+        self._limitNum = k
+        self._max_expected = dict()
+
+    def compile_max_product_graph(self) -> SN_Graph:
+        seeds = self._model.getSeeds()
+        if seeds is None or len(seeds) == 0:
+            raise ValueError("The seed set is empty!")
+        
+        tree_graph = SN_Graph(node_topic=self._model.getGraph().topic, located=False)
+        length, path = max_product_path(copy.deepcopy(self._model.getGraph()), seeds)
+
+        for node, halfway in path.items():
+            if len(halfway) == 1:
+                tree_graph.add_node(node)
+            for i in range(len(halfway)-1, 0, -1):
+                # 從後面的節點開始連邊，如果邊已經連過了就跳出迴圈
+                if not tree_graph.has_edge(halfway[i - 1], halfway[i]):
+                    weight = length[halfway[i]] / length[halfway[i - 1]]
+                    tree_graph.add_edge(halfway[i - 1], halfway[i], weight=weight)
+
+        tree_graph._initAllNodes()
+        self._max_expected = length
+        for seed in seeds:
+            self._max_expected[seed] = 1
+
+        return tree_graph
+
+    def adopt_all_coupons(self, node, desired_set_list, coupons_powerset):
+        # return the adopted set in different coupon set
+
+        def _parallel(args):
+            '''
+            Param:
+                vp_ratio (dict[list]): vp ratio of combination of desired_set and a coupon
+                adopt_itemset (dict[list]): adopt itemset of a user in differenct desired set and a coupon
+                index (int): the index of coupons_powerset
+            
+            Returns:
+                adopt_itemset (Itemset), expected_amount(float)
+            '''
+            vp_ratio = args[0]
+            index = args[1]
+            desired_set = desired_set_list[index]
+            coupon_set = coupons_powerset[index]
+
+            max_index = -1
+            max_vp = 0
+            for num_coupon in coupon_set:
+                if max_vp < vp_ratio[str(desired_set)][num_coupon]:
+                    max_vp = vp_ratio[str(desired_set)][num_coupon]
+                    max_index = num_coupon
+
+            return max_index
+
+        user_proxy = self._model.getUserProxy()
+        coupons = self._model.getCoupons()
+        graph = self._model.getGraph()
+
+        vp_table = dict()
+        amount = []
+        adopt_itemset = []
+
+        distinct_desired_set = set(desired_set_list)
+        for desired_set in distinct_desired_set:
+            vp_table[str(desired_set)] = [0]*len(self._model.getCoupons()) 
+
+            for i in range(len(coupons_powerset)):
+                # for single coupon
+                if len(coupons_powerset[i]) > 1:
+                    break
+                else:
+                    user_proxy.setCoupons([coupons[coupons_powerset[i][0]]])
+                    graph.nodes[node]["desired_set"] = desired_set
+                    result = user_proxy.adopt(node)
+                    vp_table[str(desired_set)][i] = result["VP"]
+                    amount.append(result["amount"]*self._max_expected[node])
+                    adopt_itemset.append(result["tradeOff_items"])
+
+                    # reset the set of user
+                    graph.nodes[node]["desired_set"] = None
+                    graph.nodes[node]["adopted_set"] = None
+                    user_proxy.setCoupons(coupons)
+        
+        pool = ThreadPool(cpu_count())
+        args = [(vp_table, i) for i in range(len(coupons), len(coupons_powerset))]
+        result = pool.map(_parallel, args)
+        for index in result:
+            amount.append(amount[index]*self._max_expected[node])
+            adopt_itemset.append(adopt_itemset[index])
+        
+        return adopt_itemset, amount
+    
+    def run(self):
+        coupons = self._model.getCoupons()
+        
+
+        num_coupons = list(range(len(coupons)))
+        coupons_powerset = []
+        # at least one coupon
+        for size in range(1, len(num_coupons)+1):
+            for num_set in combinations(num_coupons, size):
+                coupons_powerset.append(num_set)
+        
+        seeds = self._model.getSeeds()
+        # copy desired_set of seeds
+        origin_g = self._model.getGraph()
+        graph = self.compile_max_product_graph()
+
+        for seed in seeds:
+            graph.nodes[seed]["desired_set"] = origin_g.nodes[seed]["desired_set"]
+        self._model.setGraph(graph)
+        
+        revenue = [0] * len(coupons_powerset) # the index map to the index of coupons_powerset
+        bfs_queue = []
+        for s in seeds:
+            # node, desired_set, index of coupons_powerset
+            desired_set = [self._model.getGraph().nodes[s]["desired_set"]] * len(coupons_powerset)
+            bfs_queue.append([s, desired_set])
+
+        while len(bfs_queue) > 0:
+            task = bfs_queue.pop(0)
+            node, desired_set = task[0], task[1]
+            adopt_itemset, amount = self.adopt_all_coupons(node, desired_set, coupons_powerset)
+
+            for out_neighbor in graph.neighbors(node):
+                bfs_queue.append([out_neighbor, adopt_itemset])
+
+            revenue = list(map(add, amount, revenue))
+
+        print(revenue)
+        return [coupons[i] for i in coupons_powerset[revenue.index(max(revenue))]]

@@ -7,7 +7,7 @@ from random import random
 from itertools import combinations
 import math
 
-from topic import TopicModel
+from package.topic import TopicModel
 
 class Itemset():
   
@@ -43,6 +43,9 @@ class Itemset():
     def __str__(self):
         sortedNum = sorted(self.numbering)
         return " ".join(str(num) for num in sortedNum)
+    
+    def __hash__(self) -> int:
+        return hash(self.__str__)
     
     def empty(self):
         return len(self.numbering) == 0

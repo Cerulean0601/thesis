@@ -4,7 +4,7 @@ import random
 import logging
 from copy import deepcopy
 
-from topic import TopicModel
+from package.topic import TopicModel
 
 class SN_Graph(nx.DiGraph):
     '''

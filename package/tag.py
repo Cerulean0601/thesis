@@ -1,6 +1,7 @@
-from itemset import ItemsetFlyweight
 import logging
 import networkx as nx
+
+from package.itemset import ItemsetFlyweight
 
 class Tagger:
     def __init__(self):

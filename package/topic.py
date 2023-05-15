@@ -5,7 +5,7 @@ from gensim.corpora import dictionary
 import logging
 from random import random
 
-import utils
+from package.utils import extractTokensWithID
 
 class TopicModel():
     def __init__(self, number_topics, nodesTopic = {}, itemsTopic = {}):
@@ -24,7 +24,7 @@ class TopicModel():
             path = [directory.lower() for directory in path]
             datasetName = path[-2]
 
-            return utils.extractTokensWithID(datasetName, file)
+            return extractTokensWithID(datasetName, file)
         
         def _constructCorpus(docs: list[list[str]]):
             '''

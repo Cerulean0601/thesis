@@ -3,8 +3,8 @@ from itertools import combinations
 import logging
 from multiprocessing.pool import ThreadPool
 
-from social_graph import SN_Graph
-from itemset import ItemsetFlyweight, Itemset
+from package.social_graph import SN_Graph
+from package.itemset import ItemsetFlyweight, Itemset
 
 class UsersProxy():
     '''
@@ -25,9 +25,11 @@ class UsersProxy():
     def getThreshold(self):
         return self._threshold
     
-    def replaceCoupons(self, coupons):
+    def setCoupons(self, coupons):
         self._coupons = coupons
-
+    def getCoupons(self):
+        return self._coupons
+    
     def _VP_ratio(self, user_id, itemset, mainItemset = None, coupon = None):
         if coupon == None:
             return self._mainItemsetVP(user_id, itemset)
@@ -264,7 +266,7 @@ class UsersProxy():
                 trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"]) 
                 trade["amount"] = trade["tradeOff_items"].price - self._discount(trade["tradeOff_items"], addtional["coupon"])
                 trade["coupon"] = addtional["coupon"]
-        
+
         if trade["VP"] >= self._threshold:
             self._graph.nodes[user_id]["adopted_set"] = self._itemset.union(
                                     self._graph.nodes[user_id]["adopted_set"],

@@ -9,11 +9,11 @@ from multiprocessing.pool import ThreadPool
 import pandas as pd
 
 # custom package
-from user_proxy import UsersProxy
-from itemset import ItemsetFlyweight, Itemset
-from coupon import Coupon
-from social_graph import SN_Graph
-from topic import TopicModel
+from package.user_proxy import UsersProxy
+from package.itemset import ItemsetFlyweight, Itemset
+from package.coupon import Coupon
+from package.social_graph import SN_Graph
+from package.topic import TopicModel
 #from tag import Tagger, TagMainItemset, TagAppending
 
 class DiffusionModel():
@@ -22,9 +22,7 @@ class DiffusionModel():
         self.name = name
 
         self._itemset = ItemsetFlyweight(itemset["price"], itemset["topic"]) if type(itemset) == dict else itemset
-
-        self._coupons = coupons
-        self._user_proxy = UsersProxy(self._graph, self._itemset, self._coupons, threshold)
+        self._user_proxy = UsersProxy(self._graph, self._itemset, coupons, threshold)
         self._seeds = []
             
     def getSeeds(self):
@@ -47,10 +45,10 @@ class DiffusionModel():
         return self._user_proxy
     
     def setCoupons(self, coupons):
-        self._coupons = coupons
+        self.getUserProxy().setCoupons(coupons)
 
     def getCoupons(self):
-        return self._coupons
+        return self.getUserProxy().getCoupons()
     
     def getThreshold(self):
         return self._user_proxy.getThreshold()
