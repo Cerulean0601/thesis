@@ -2,6 +2,7 @@ import networkx as nx
 import queue
 import random
 import logging
+import math
 from copy import deepcopy
 
 from package.topic import TopicModel
@@ -44,6 +45,9 @@ class SN_Graph(nx.DiGraph):
 
         return compose
 
+    def getAllTopics(self):
+        return self.topic
+    
     @staticmethod
     def construct(edges_file, node_topic:TopicModel|dict, located=True) -> None:
         '''
@@ -227,5 +231,44 @@ class SN_Graph(nx.DiGraph):
         self._initAllEdges()
         self._initAllNodes()
 
-    def caculate_shortest_path_length(self, src, dest):
-        return nx.shortest_path_length(self, src, dest, weight="weight")
+    @staticmethod
+    def max_product_path(graph, seeds, cutoff=10**(-6)):
+
+        _max_expected = dict()
+
+        # 取log是為了連乘=>log(a*b)=loga+logb
+        # 取負數是要轉換為最短路徑問題
+        nx.set_edge_attributes(graph, {(u, v): {"weight": -(math.log10(data["weight"]))} for u, v, data in graph.edges(data=True)})
+
+        length, path = nx.multi_source_dijkstra(graph, seeds, weight="weight")
+        for node, max_len in length.items():
+            if node in seeds:
+                _max_expected[node] = 1
+            else:
+                _max_expected[node] = math.pow(10, -max_len)
+
+        nx.set_edge_attributes(graph, {(u, v): {"weight": math.pow(10, -data["weight"])} for u, v, data in graph.edges(data=True)})
+        return _max_expected, path
+    
+    @staticmethod
+    def compile_max_product_graph(graph, seeds):
+
+        if seeds is None or len(seeds) == 0:
+            raise ValueError("The seed set is empty!")
+        
+        tree_graph = SN_Graph(node_topic=graph.getAllTopics(), located=graph.convertDirected())
+        length, path = SN_Graph.max_product_path(graph, seeds)
+
+        for node, halfway in path.items():
+            if len(halfway) == 1:
+                tree_graph.add_node(node)
+
+            for i in range(len(halfway)-1, 0, -1):
+                # 從後面的節點開始連邊，如果邊已經連過了就跳出迴圈
+                if not tree_graph.has_edge(halfway[i - 1], halfway[i]):
+                    weight = length[halfway[i]] / length[halfway[i - 1]]
+                    tree_graph.add_edge(halfway[i - 1], halfway[i], weight=weight)
+
+        tree_graph._initAllNodes()
+
+        return tree_graph, length

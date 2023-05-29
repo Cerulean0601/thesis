@@ -1,5 +1,6 @@
 import logging
 import networkx as nx
+import math
 
 from package.itemset import ItemsetFlyweight
 
@@ -129,42 +130,48 @@ class TagAppending(Tagger):
         return max(self.table[group], key=self.table[group].get)
 
 class TagRevenue(Tagger):
-    def __init__(self, graph, shortest_path_len):
+    def __init__(self, graph, seeds, max_expected=dict()):
         super().__init__()
         self._counting = 0
-        self._graph = graph
-        self._shortest_path_len = shortest_path_len
+        self._seeds = seeds
+        self._compile_graph = nx.DiGraph()
+        # transform to the shortest path problem
+        self._compile_graph.add_edges_from((u,v, {"weight": -1 * math.log10(d["weight"])}) for u,v,d in graph.edges(data=True))
+
+        self._max_expected = max_expected
 
     def tag(self, params, **kwargs):
 
         self.setParams(params, **kwargs)
         
-        src, det = self._params["belonging"]["det"], self._params["det"]
-        # if src is None, it is a seed
-        if src != None:
-            if src not in self._shortest_path_len:
-                self._shortest_path_len[src] = dict()
-    
-            if det not in self._shortest_path_len[src]:
-                self._shortest_path_len[src][det] = self._graph.caculate_shortest_path_length(src, det)
+        det = self._params["det"]
+        if det not in self._max_expected:
+            length, path = nx.multi_source_dijkstra(self._compile_graph, self._seeds, det)
+            length = math.pow(10, -length)
+            self._max_expected[det] = length if det not in self._seeds else 1
 
-        expectedProbability = self._shortest_path_len[src][det] if src != None else 1
-        self._counting += params["amount"]*expectedProbability
+        # price multi maximum expected probability
+        self._counting += params["amount"]*self._max_expected[det]
+        self._params["max_expected"] = self._max_expected
         super().tag(self._params)
 
     def amount(self):
         return self._counting
 
-class TagActivatedNode(Tagger):
+class TagActiveNode(Tagger):
     def __init__(self):
         super().__init__()
         self._count = 0
 
     def tag(self, params, **kwargs):
         self.setParams(params, **kwargs)
-        
-        if len(self._params["node"]["adopted_records"]) == 1:
-            self._count += 1
+        if "max_expected" not in self._params:
+            raise ValueError("You should calculate maximum expected probability before counting active node.")
+                             
+        node = self._params["node"]
+        node_id = self._params["node_id"]
+        if len(node["adopted_records"]) > 0:
+            self._count += self._params["max_expected"][node_id]
 
         super().tag(self._params)
 

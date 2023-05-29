@@ -5,7 +5,7 @@ from multiprocessing.pool import ThreadPool
 
 from package.social_graph import SN_Graph
 from package.itemset import ItemsetFlyweight, Itemset
-
+from package.coupon import Coupon
 class UsersProxy():
     '''
       使用者的購買行為，包含挑選主商品、額外購買、影響成功後的行為
@@ -25,9 +25,10 @@ class UsersProxy():
     def getThreshold(self):
         return self._threshold
     
-    def setCoupons(self, coupons):
+    def setCoupons(self, coupons:list[Coupon]):
         self._coupons = coupons
-    def getCoupons(self):
+
+    def getCoupons(self) -> list[Coupon]:
         return self._coupons
     
     def _VP_ratio(self, user_id, itemset, mainItemset = None, coupon = None):

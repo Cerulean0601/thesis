@@ -1,5 +1,4 @@
 import re
-import math
 import networkx as nx
 
 def preprocessingText(text):
@@ -76,21 +75,3 @@ def dot(a:list, b:list):
         raise ValueError("The length of two topics must match")
     
     return sum(i[0]*i[1] for i in zip(a, b))
-
-def max_product_path(graph, seeds, cutoff=10**(-6)):
-    _max_expected = dict()
-
-    for u, v, data in graph.edges(data=True):
-        # 取log是為了連乘=>log(a*b)=loga+logb
-        # 取負數是要轉換為最短路徑問題
-        weight = -1 * (math.log10(data["weight"]))
-        data["weight"] = 0 if weight == -0 else weight
-
-    length, path = nx.multi_source_dijkstra(graph, seeds, weight="weight")
-    for node, max_len in length.items():
-        if node in seeds:
-            _max_expected[node] = 1
-        else:
-            _max_expected[node] = math.pow(10, -max_len)
-
-    return _max_expected, path

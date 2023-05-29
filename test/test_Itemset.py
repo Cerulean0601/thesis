@@ -1,5 +1,5 @@
 import unittest
-from itemset import ItemsetFlyweight, ItemRelation,Itemset
+from package.itemset import ItemsetFlyweight, ItemRelation,Itemset
 import pandas as pd
 
 class TestItemsetFlyweight(unittest.TestCase):

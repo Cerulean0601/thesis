@@ -28,6 +28,9 @@ class DiffusionModel():
     def getSeeds(self):
         return self._seeds
 
+    def setSeeds(self, seeds):
+        self._seeds = seeds
+        
     def getGraph(self):
         return self._graph
 
@@ -44,7 +47,7 @@ class DiffusionModel():
     def getUserProxy(self):
         return self._user_proxy
     
-    def setCoupons(self, coupons):
+    def setCoupons(self, coupons:list[Coupon]):
         self.getUserProxy().setCoupons(coupons)
 
     def getCoupons(self):
@@ -62,11 +65,13 @@ class DiffusionModel():
 
     def allocate(self, seeds, items):
         '''
-            Args:
-                seeds (list): A list of seeds
-                items (list of Itemset)
-            將商品分配給種子節點，並且放進對應的 desired_set。
-            分配策略: 單價越高的商品分給degree越高的節點
+        將商品分配給種子節點，並且放進對應的 desired_set。
+        分配策略: 單價越高的商品分給degree越高的節點
+        Args:
+            seeds (list): 
+                A list of seeds
+            items (list of Itemset): 
+                A list of items
         '''
         for i in range(len(items)):
             for j in range(i):
