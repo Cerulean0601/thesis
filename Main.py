@@ -1,10 +1,6 @@
-import os
 import unittest
-import networkx as nx
-import sys
 from time import time, ctime
 from notify_run import Notify
-
 # CONSTANT
 DATA_ROOT = "./data"
 DBLP_PATH = DATA_ROOT + "/dblp"
@@ -17,21 +13,18 @@ def test():
     suite = unittest.defaultTestLoader.discover("./test/")
     testRunner.run(suite)
 
-import sys
-import logging
+#import logging
 
 #logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
-sys.path.append('./package/')
 
 import pandas as pd
 
-from model import DiffusionModel
-from topic import TopicModel
-from social_graph import SN_Graph
-from itemset import ItemsetFlyweight, ItemRelation
-from coupon import Coupon
-from utils import getItemsPrice, read_items
-from algorithm import Algorithm
+from package.model import DiffusionModel
+from package.topic import TopicModel
+from package.social_graph import SN_Graph
+from package.itemset import ItemsetFlyweight, ItemRelation
+from package.utils import getItemsPrice, read_items
+from package.algorithm import Algorithm
 
 NUM_TOPICS = 5
 TOPICS = {
@@ -71,8 +64,8 @@ def main():
     items = read_items(AMAZON_PATH + "/sample_items.csv")
 
     topicModel = TopicModel(NUM_TOPICS)
-    topicModel.read_topics(node_file=FACEBOOK_PATH + "/nodes_with_" + str(NUM_TOPICS) + "_topic")
-    topicModel.randomTopic(items_id=items.keys())
+    topicModel.read_topics(node_file=FACEBOOK_PATH + "/nodes_with_" + str(NUM_TOPICS) + "_topic.csv",
+                           items_file=AMAZON_PATH + "/items_with_" + str(NUM_TOPICS) + "_topic.csv")
 
     graph = SN_Graph.construct(FACEBOOK_PATH + "/edges", topicModel, located=False)
 
@@ -81,12 +74,14 @@ def main():
     itemset = ItemsetFlyweight(getItemsPrice(AMAZON_PATH + "/sample_items.csv"), topicModel, relation)
 
     model = DiffusionModel("amazon in dblp", graph, itemset, threshold=10**(-5))
-
-
+    seed_size = min(itemset.size, graph.number_of_nodes())
+    seeds = model.selectSeeds(seed_size)
+    model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
+    
     algo = Algorithm(model,0)
     simluation_times = 10
-    performanceFile = r"./result/self.txt"
-    
+    performanceFile = r"./result/optimization.txt"
+    candidatedCoupons = algo.genAllCoupons(30.0)
 
     for k in range(0,12):
                 
@@ -98,16 +93,12 @@ def main():
             if k == 0:
                 outputCoupons, tagger = algo.simulation([])
             else:
-                candidatedCoupons = []
-                while candidatedCoupons != []:
-                    candidatedCoupons = algo.genSelfCoupons()
-
-                outputCoupons, tagger = algo.simulation(candidatedCoupons)
+                outputCoupons, tagger = algo.optimalAlgo(candidatedCoupons)
 
             end_time = time()
         
             revenue = tagger["TagRevenue"].amount()
-            numActivedNode = tagger["TagActivatedNode"].amount()
+            numActivedNode = tagger["TagActiveNode"].amount()
 
             with open(performanceFile, "a") as record:
                 
@@ -123,10 +114,10 @@ def main():
                 for c in outputCoupons:
                     record.write(str(c) + "\n")
                 record.write("\n")
-                    
+
 if __name__ == '__main__':    
     
-    #test()
+    test()
     NOTIFY = False
 
     if NOTIFY:

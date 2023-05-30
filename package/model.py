@@ -62,7 +62,8 @@ class DiffusionModel():
                 list: an ordered list of nodes which is sorted by degrees
         '''
         self._seeds = [seed[0] for seed in self._graph.top_k_nodes(k)]
-
+        return self._seeds
+    
     def allocate(self, seeds, items):
         '''
         將商品分配給種子節點，並且放進對應的 desired_set。

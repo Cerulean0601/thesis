@@ -1,22 +1,19 @@
 
-from networkx import set_node_attributes, get_node_attributes
-import pandas as pd
+from networkx import set_node_attributes
 import logging
 import numpy as np
 from multiprocessing.pool import ThreadPool
-import multiprocessing
 import copy 
 from itertools import combinations
 from os import cpu_count
 import random, math
-from operator import add
 
 from package.tag import *
 from package.itemset import Itemset
 from package.model import DiffusionModel
-from package.itemset import ItemsetFlyweight
 from package.social_graph import SN_Graph
 from package.coupon import Coupon
+from package.utils import dot
 
 class Algorithm:
     def __init__(self, model, k):
@@ -28,6 +25,14 @@ class Algorithm:
 
     def setLimitCoupon(self, k):
         self._limitNum = k
+
+    def calculateMaxExpProbability(self):
+        G = self._graph
+        seeds = self._model.getSeeds()
+        if seeds is None or len(seeds) == 0:
+            raise ValueError("Seed set is empty.")
+        
+        self._max_expected_subgraph, self._max_expected = SN_Graph.compile_max_product_graph(G, seeds)
 
     def genAllCoupons(self, price_step:float):
         '''
@@ -45,50 +50,17 @@ class Algorithm:
         return coupons
 
     def _preprocessing(self):
-        numSampling = 5
-        if len(self._model.getSeeds()) == 0:
-            raise ValueError("Should 2wsaZ the seeds of model before preprocessing.")
-        
-        subgraph = self._graph.sampling_subgraph(numSampling, roots=self._model.getSeeds())
-        
-        # The subgraph has been sampled with deepcopy
-        # sub_model = DiffusionModel("Subgraph", 
-        #                            subgraph,
-        #                            self._model.getItemsetHandler(),
-        #                            self._model.getCoupons(),
-        #                            self._model.getThreshold()
-        #                            )
-        # sub_model._seeds = copy.deepcopy(self._model.getSeeds())
-        # sub_model.allocate(sub_model._seeds, [self._itemset[id] for id in list(self._itemset.PRICE.keys())])
+        self._max_expected_subgraph.initAttr()
         sub_model = copy.deepcopy(self._model)
-        
-        self._shortestPath(sub_model.getSeeds())
-        self._grouping(sub_model)
+        sub_model.setGraph(self._max_expected_subgraph)
 
         tagger = Tagger()
-        tagger.setParams(belonging=self._belonging, expectedProbability=self._expected)
-        tagger.setNext(TagMainItemset())
+        tagger.setParams(components=nx.weakly_connected_components(self._max_expected_subgraph), max_expected=self._max_expected)
+        tagger.setNext(TagMainItemset(sub_model.getSeeds()))
         tagger.setNext(TagAppending(sub_model.getItemsetHandler()))
         sub_model.diffusion(tagger)
 
         return tagger
-    
-    def _shortestPath(self, seeds):
-        
-        for seed in seeds:
-            self._expected[seed] = shortest_path_length(self._graph, source=seed, weight="weight")
-            self._expected[seed][seed] = 1
-
-    def _grouping(self, model):
-        seeds = model.getSeeds()
-        if not self._expected:
-            self._shortestPath(seeds)
-
-        self._belonging = pd.DataFrame.from_dict(self._expected).idxmax(axis=1)
-        for seed in seeds:
-            self._belonging[seed] = seed
-        logging.info("Grouping nodes have done.")
-        logging.debug(self._belonging)
     
     def _getAccItemset(self, mainItemset, appending):
         
@@ -298,6 +270,7 @@ class Algorithm:
             for seed in seeds:
                 data = {seed: self._model.getGraph().nodes[seed]}
                 set_node_attributes(model.getGraph(), data)
+                
         tagger = Tagger()
         tagger.setNext(TagRevenue(graph, model.getSeeds(), args[2]))
         tagger.setNext(TagActiveNode())

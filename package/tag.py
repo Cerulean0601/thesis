@@ -52,8 +52,14 @@ class TagMainItemset(Tagger):
 
         itemset = self._params["mainItemset"]
         node_id = self._params["node_id"]
-        seed = self._params["belonging"][node_id]
-        expectedProbability = self._params["expectedProbability"][seed][node_id]
+
+        seed = None
+        for component in self._params["components"]:
+            if node_id in component:
+                seed = component[0]
+                break
+
+        expectedProbability = self._params["max_expected"][node_id]
         ids = str(itemset)
 
         if seed not in self.table:
@@ -99,8 +105,14 @@ class TagAppending(Tagger):
         
         node_id = self._params["node_id"]
         mainItemset = self._params["mainItemset"]
-        seed = self._params["belonging"][node_id]
-        expectedProbability = self._params["expectedProbability"][seed][node_id]
+
+        seed = None
+        for component in self._params["components"]:
+            if node_id in component:
+                seed = component[0]
+                break
+            
+        expectedProbability = self._params["max_expected"][node_id]
 
         if seed not in self.table:
             self.table[seed] = dict()
