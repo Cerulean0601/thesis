@@ -68,5 +68,5 @@ class TestAlgorithm(unittest.TestCase):
             While coupon[0] is in the output, the revenue is reduced if we append coupon[1]
         '''
         self.assertListEqual([coupons[0]], outputCoupon, "The output of coupons is not correct.")
-        self.assertEqual(tagger["TagRevenue"].amount(), 940, "Revenue is not correct.")
-        self.assertEqual(tagger["TagActiveNode"].amount(), 2, "The number of active node is not correct.")
+        self.assertEqual(tagger["TagRevenue"].expected_amount(), 940, "Revenue is not correct.")
+        self.assertEqual(tagger["TagActiveNode"].expected_amount(), 2, "The number of active node is not correct.")

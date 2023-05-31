@@ -245,20 +245,6 @@ class Algorithm:
         
         return coupons
     
-    def dynamicProgramming(self, candidatedCoupons):
-        coupon_set = []
-        limit_size = min(self._limitNum, len(candidatedCoupons))
-        for size in range(limit_size + 1):
-            for comb_coupos in combinations(candidatedCoupons, size):
-                # comb_coupos is tuple type
-                coupon_set.append(list(comb_coupos))
-
-        '''
-        init CP, adopt table for users where the size of coupon set is one, and caculate revenue
-        row is desired set of a user, and column is the coupon
-
-        if the size of coupon set is more than one, CP(D, C)=max(CP(D,c1),CP(D,c2)
-        '''
     def _parallel(self, args):
         coupon = args[1]
         graph = copy.deepcopy(self._model.getGraph())
@@ -317,8 +303,8 @@ class Algorithm:
                 
             # find the maximum margin benfit of coupon
             for i in range(len(result)):
-                if result[i]["TagRevenue"].amount() > maxMargin:
-                    maxMargin = result[i]["TagRevenue"].amount()
+                if result[i]["TagRevenue"].expected_amount() > maxMargin:
+                    maxMargin = result[i]["TagRevenue"].expected_amount()
                     maxIndex = i
             
             # if these coupons are more benfit than current coupons, add it and update 
@@ -357,8 +343,8 @@ class Algorithm:
         maxIndex = 0
 
         for i in range(len(result)):
-            if result[i]["TagRevenue"].amount() > maxRevenue:
-                maxRevenue = result[i]["TagRevenue"].amount()
+            if result[i]["TagRevenue"].expected_amount() > maxRevenue:
+                maxRevenue = result[i]["TagRevenue"].expected_amount()
                 maxIndex = i
 
         return couponsPowerset[maxIndex][1], result[maxIndex]
@@ -413,7 +399,7 @@ class Algorithm:
             pool.join()
 
             # objective function(new_solution) - objective function(current_solution)
-            delta = result[1]["TagRevenue"].amount() - result[0]["TagRevenue"].amount()
+            delta = result[1]["TagRevenue"].expected_amount() - result[0]["TagRevenue"].expected_amount()
             tagger = result[0]
 
             if delta > 0:

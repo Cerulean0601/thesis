@@ -1,8 +1,10 @@
 import logging
 import networkx as nx
 import math
+import numpy as np
 
 from package.itemset import ItemsetFlyweight
+from package.social_graph import SN_Graph
 
 class Tagger:
     def __init__(self):
@@ -144,36 +146,37 @@ class TagAppending(Tagger):
 class TagRevenue(Tagger):
     def __init__(self, graph, seeds, max_expected=dict()):
         super().__init__()
-        self._counting = 0
+        self._amount = 0
+        self._expected_amount = 0
         self._seeds = seeds
-        self._compile_graph = nx.DiGraph()
-        # transform to the shortest path problem
-        self._compile_graph.add_edges_from((u,v, {"weight": -1 * math.log10(d["weight"])}) for u,v,d in graph.edges(data=True))
-
-        self._max_expected = max_expected
+        self._compile_graph, self._max_expected = SN_Graph.compile_max_product_graph(graph, self._seeds)
+        self._graph = graph
+        for seed in self._seeds:
+            self._max_expected[seed] = 1
 
     def tag(self, params, **kwargs):
 
         self.setParams(params, **kwargs)
         
         det = self._params["det"]
-        if det not in self._max_expected:
-            length, path = nx.multi_source_dijkstra(self._compile_graph, self._seeds, det)
-            length = math.pow(10, -length)
-            self._max_expected[det] = length if det not in self._seeds else 1
-
         # price multi maximum expected probability
-        self._counting += params["amount"]*self._max_expected[det]
+        self._expected_amount += params["amount"]*self._max_expected[det]
+        self._amount += params["amount"]
         self._params["max_expected"] = self._max_expected
         super().tag(self._params)
 
     def amount(self):
-        return self._counting
-
+        return self._amount
+    
+    def expected_amount(self):
+        return self._expected_amount
+    
 class TagActiveNode(Tagger):
     def __init__(self):
         super().__init__()
-        self._count = 0
+        self._amount = 0
+        self._expected_amount = 0
+        self._distirbution = [0 for i in np.arange(0, 1.1, 0.1, dtype=float)]
 
     def tag(self, params, **kwargs):
         self.setParams(params, **kwargs)
@@ -183,9 +186,16 @@ class TagActiveNode(Tagger):
         node = self._params["node"]
         node_id = self._params["node_id"]
         if len(node["adopted_records"]) > 0:
-            self._count += self._params["max_expected"][node_id]
-
+            self._expected_amount += self._params["max_expected"][node_id]
+            self._distirbution[math.floor(self._params["max_expected"][node_id]*10)] += 1
+            self._amount += 1
         super().tag(self._params)
 
     def amount(self):
-        return self._count
+        return self._amount
+    
+    def expected_amount(self):
+        return self._expected_amount
+    
+    def distribution(self):
+        return self._distirbution

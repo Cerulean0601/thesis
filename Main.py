@@ -96,17 +96,16 @@ def main():
                 outputCoupons, tagger = algo.optimalAlgo(candidatedCoupons)
 
             end_time = time()
-        
-            revenue = tagger["TagRevenue"].amount()
-            numActivedNode = tagger["TagActiveNode"].amount()
 
             with open(performanceFile, "a") as record:
                 
-                record.write("{0},runtime={1},revenue={2},num_activated_node={3},k={4},times={5}\n".format(
+                record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},k={6},times={7}\n".format(
                     ctime(end_time),
                     (end_time - start_time),
-                    revenue,
-                    numActivedNode,
+                    tagger["TagRevenue"].amount(),
+                    tagger["TagRevenue"].expected_amount(),
+                    tagger["TagActiveNode"].amount(),
+                    tagger["TagActiveNode"].expected_amount(),
                     k,
                     i
                     ))
