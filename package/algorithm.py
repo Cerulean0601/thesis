@@ -62,12 +62,15 @@ class Algorithm:
         sub_model.setGraph(self._max_expected_subgraph)
 
         seeds = list(sub_model.getSeeds())
-        self._group = dict()
-        for component in nx.weakly_connected_components(self._max_expected_subgraph):
-            for seed in seeds:
-                if seed in component:
-                    self._group[seed] = component
-                    del seed
+        self._group = dict() # {seed_1: {u_1, u_2,...,}}
+
+        for seed in seeds:
+            self._group[seed] = set(sub_model.getGraph().sampling_subgraph(root=[seed]).nodes)
+        # for component in nx.weakly_connected_components(self._max_expected_subgraph):
+        #     for seed in seeds:
+        #         if seed in component:
+        #             self._group[seed] = component
+        #             del seed
 
         tagger = Tagger()
         tagger.setParams(group=self._group, max_expected=self._max_expected)
