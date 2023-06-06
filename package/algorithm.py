@@ -48,15 +48,30 @@ class Algorithm:
                         coupons.append(Coupon(threshold, accItemset, discount, disItemset))
     
         return coupons
-
+    def _getGroupNum(self, node):
+        for seed, group in self._group.items():
+            if node in group:
+                return seed
+        
+        raise ValueError("The node does not exist.")
+    
     def _preprocessing(self):
+        self.calculateMaxExpProbability()
         self._max_expected_subgraph.initAttr()
         sub_model = copy.deepcopy(self._model)
         sub_model.setGraph(self._max_expected_subgraph)
 
+        seeds = list(sub_model.getSeeds())
+        self._group = dict()
+        for component in nx.weakly_connected_components(self._max_expected_subgraph):
+            for seed in seeds:
+                if seed in component:
+                    self._group[seed] = component
+                    del seed
+
         tagger = Tagger()
-        tagger.setParams(components=nx.weakly_connected_components(self._max_expected_subgraph), max_expected=self._max_expected)
-        tagger.setNext(TagMainItemset(sub_model.getSeeds()))
+        tagger.setParams(group=self._group, max_expected=self._max_expected)
+        tagger.setNext(TagMainItemset())
         tagger.setNext(TagAppending(sub_model.getItemsetHandler()))
         sub_model.diffusion(tagger)
 
@@ -87,18 +102,15 @@ class Algorithm:
             for candidate in sortedCandidate:
                 yield staringPrice + candidate.price
 
-    def _sumGroupExpTopic(self, group):
-        topic_size = len(self._graph.nodes[group]["topic"])
-        groupingNodes = (node for node in self._belonging.keys() if self._belonging[node] == group)
+    def _sumGroupExpTopic(self, groupingNodes):
+        topic_size = len(self._graph.nodes[next(iter(groupingNodes))]["topic"])
 
         expectedTopic = [0]*topic_size
-        normExpected = dict()
-        for group, expectedGroup in self._expected.items():
-                normExpected[group] = sum(expectedGroup.values())
+        normExpected = sum([self._max_expected[node] for node in groupingNodes])
 
         for node in groupingNodes:
             for t in range(topic_size):
-                expectedTopic[t] += self._graph.nodes[node]["topic"][t]*(self._expected[group][node]/normExpected[group])
+                expectedTopic[t] += self._graph.nodes[node]["topic"][t]*(self._max_expected[node]/normExpected)
         
         return expectedTopic
         # topic = []
@@ -153,7 +165,7 @@ class Algorithm:
             items = [self._model._itemset[id] for id in list(self._model._itemset.PRICE.keys())]
 
             self._model.allocate(seeds, items)
-
+        
         tagger = self._preprocessing()
         mainItemset = tagger.getNext()
         appending = mainItemset.getNext()
@@ -164,7 +176,7 @@ class Algorithm:
         #     result.append(self._sumGroupExpTopic(seed))
 
         pool = ThreadPool()
-        result = pool.map(self._sumGroupExpTopic, [seed for seed in seeds])
+        result = pool.map(self._sumGroupExpTopic, [nodes for nodes in self._group.values()])
         pool.close()
         pool.join()
 

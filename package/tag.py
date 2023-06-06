@@ -56,9 +56,9 @@ class TagMainItemset(Tagger):
         node_id = self._params["node_id"]
 
         seed = None
-        for component in self._params["components"]:
-            if node_id in component:
-                seed = component[0]
+        for num, nodes in self._params["group"].items():
+            if node_id in nodes:
+                seed = num
                 break
 
         expectedProbability = self._params["max_expected"][node_id]
@@ -109,10 +109,9 @@ class TagAppending(Tagger):
         mainItemset = self._params["mainItemset"]
 
         seed = None
-        for component in self._params["components"]:
-            if node_id in component:
-                seed = component[0]
-                break
+        for num, nodes in self._params["group"].items():
+            if node_id in nodes:
+                seed = num
             
         expectedProbability = self._params["max_expected"][node_id]
 

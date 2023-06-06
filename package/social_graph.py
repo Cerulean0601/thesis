@@ -6,6 +6,7 @@ import math
 from copy import deepcopy
 
 from package.topic import TopicModel
+from package.utils import dot
 
 class SN_Graph(nx.DiGraph):
     '''
@@ -28,7 +29,6 @@ class SN_Graph(nx.DiGraph):
         super().__init__()
         self.located = located # 原圖是否為無向圖，若為無向圖則重定向為有向圖
         self.topic = node_topic
-        self._shortest_path_length = dict()
 
     def __add__(self, another_G):
         '''
@@ -73,11 +73,10 @@ class SN_Graph(nx.DiGraph):
                         graph.add_edge(det, src)
 
         graph.initAttr()
-        graph._shortest_path_length = dict()
         print("Done")
         return graph
         
-    def _bfs_sampling(self, num_nodes:int = None, roots:list = []):
+    def _bfs_sampling(self, num_nodes:int = None, roots:list = [], threshold=10**(-7)):
 
         if len(list(self.nodes)) == 0:
             raise Exception("The number of nodes in the original graph is zero.")
@@ -104,7 +103,10 @@ class SN_Graph(nx.DiGraph):
 
             node = q.get()
             for out_neighbor, attr in self.adj[node].items():
-                if random.random() < attr["weight"] and "is_sample" not in attr:
+                re_weight = 0.5*dot(self.nodes[node]["topic"], self.nodes[out_neighbor]["topic"]) + 0.5*attr["weight"]
+
+                # if new weight is greater than threshold, then add the out_neighbor
+                if re_weight > threshold and "is_sample" not in attr:
                     self.edges[node, out_neighbor]["is_sample"] = True
                     subgraph.add_edge(node, out_neighbor)
                     q.put(out_neighbor)
@@ -113,12 +115,12 @@ class SN_Graph(nx.DiGraph):
         subgraph.initAttr()
         return subgraph
       
-    def sampling_subgraph(self, num_iter:int = 1, num_nodes:int = None, roots:list = [], strategy="bfs"):
+    def sampling_subgraph(self, num_iter:int = 1, num_nodes:int = None, roots:list = [], threshold=10**(-7)):
         subgraph = SN_Graph(self.topic, located=self.convertDirected())
 
         for i in range(num_iter):
             population = deepcopy(self)
-            subgraph += population._bfs_sampling(num_nodes, roots)
+            subgraph += population._bfs_sampling(num_nodes, roots, threshold=threshold)
         return subgraph
 
     @staticmethod
