@@ -14,7 +14,7 @@ class TopicModel():
         self._mappingItem = itemsTopic
         self.number_topics = number_topics
 
-    def construct(self, items_file, nodes_file=None):
+    def construct(self, items_file, nodes_file=None): # pragma: no cover
         '''
             construct topic model from tokens through LDA model
         '''
@@ -26,7 +26,7 @@ class TopicModel():
 
             return extractTokensWithID(datasetName, file)
         
-        def _constructCorpus(docs: list[list[str]]):
+        def _constructCorpus(docs: list[list[str]]): 
             '''
                 從 tokens 建立語料庫
 
@@ -65,7 +65,7 @@ class TopicModel():
                 bow = self._corpus[i]
                 self._mappingNode[self._nodes_id[i]] = [pair[1] for pair in self._model.get_document_topics(bow, 0)]
 
-    def read_topics(self, node_file=None, items_file=None):
+    def read_topics(self, node_file=None, items_file=None): # pragma: no cover
         '''
             read topics which have been generated in file. The format of each line is id, topic_1
             topic_2, topic_3...
@@ -124,7 +124,7 @@ class TopicModel():
                 self._mappingItem[asin] = generate(self.number_topics)
         
 
-    def save(self, path = "D:\\論文實驗\\data\\topic\\"):
+    def save(self, path = "D:\\論文實驗\\data\\topic\\"): # pragma: no cover
         def saveToFile(filename, _mapping):
             with open(filename, "w" ,encoding="utf8") as f:
                 output = ""
@@ -137,7 +137,7 @@ class TopicModel():
         saveToFile(path + "topic" + str(self.number_topics) + "_users.csv", self._mappingNode)
 
     @staticmethod
-    def load(number_topics, path = "D:\\論文實驗\\data\\topic\\") ->dict:
+    def load(number_topics, path = "D:\\論文實驗\\data\\topic\\") ->dict: # pragma: no cover
         '''
             Reload the topic vetors that is the output of LDA model which had been trained.
         '''

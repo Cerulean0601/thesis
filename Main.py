@@ -86,33 +86,30 @@ def main():
     for k in range(0,12):
                 
         algo.setLimitCoupon(k)
-        for i in range(simluation_times):
-            print("k={0}, times={1}".format(k, i))
-            start_time = time()
+        start_time = time()
+        
+        if k == 0:
+            outputCoupons, tagger = algo.simulation([])
+        else:
+            outputCoupons, tagger = algo.simulation(candidatedCoupons)
+
+        end_time = time()
+
+        with open(performanceFile, "a") as record:
             
-            if k == 0:
-                outputCoupons, tagger = algo.simulation([])
-            else:
-                outputCoupons, tagger = algo.simulation(candidatedCoupons)
-
-            end_time = time()
-
-            with open(performanceFile, "a") as record:
-                
-                record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},k={6},times={7}\n".format(
-                    ctime(end_time),
-                    (end_time - start_time),
-                    tagger["TagRevenue"].amount(),
-                    tagger["TagRevenue"].expected_amount(),
-                    tagger["TagActiveNode"].amount(),
-                    tagger["TagActiveNode"].expected_amount(),
-                    k,
-                    i
-                    ))
-                
-                for c in outputCoupons:
-                    record.write(str(c) + "\n")
-                record.write("\n")
+            record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},k={6}\n".format(
+                ctime(end_time),
+                (end_time - start_time),
+                tagger["TagRevenue"].amount(),
+                tagger["TagRevenue"].expected_amount(),
+                tagger["TagActiveNode"].amount(),
+                tagger["TagActiveNode"].expected_amount(),
+                k,
+                ))
+            
+            for c in outputCoupons:
+                record.write(str(c) + "\n")
+            record.write("\n")
 
 if __name__ == '__main__':    
     

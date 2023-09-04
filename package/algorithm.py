@@ -7,6 +7,7 @@ import copy
 from itertools import combinations
 from os import cpu_count
 import random, math
+import threading
 
 from package.tag import *
 from package.itemset import Itemset
@@ -16,12 +17,14 @@ from package.coupon import Coupon
 from package.utils import dot
 
 class Algorithm:
-    def __init__(self, model, k):
+    def __init__(self, model, k, simulationTimes=1):
         self._model = model
         self._graph = model.getGraph()
         self._itemset = model.getItemsetHandler()
         self._max_expected = dict()
         self._limitNum = k
+        self._max_expected_path = dict()
+        self.simulationTimes = simulationTimes
 
     def setLimitCoupon(self, k):
         self._limitNum = k
@@ -65,7 +68,7 @@ class Algorithm:
         self._group = dict() # {seed_1: {u_1, u_2,...,}}
 
         for seed in seeds:
-            self._group[seed] = set(sub_model.getGraph().sampling_subgraph(root=[seed]).nodes)
+            self._group[seed] = set(sub_model.getGraph().sampling_subgraph(roots=[seed]).nodes)
         # for component in nx.weakly_connected_components(self._max_expected_subgraph):
         #     for seed in seeds:
         #         if seed in component:
@@ -263,26 +266,28 @@ class Algorithm:
     def _parallel(self, args):
         coupon = args[1]
         graph = copy.deepcopy(self._model.getGraph())
+        
         model = DiffusionModel("", graph, self._model.getItemsetHandler(), coupon, self._model.getThreshold())
         
-        seeds = self._model.getSeeds()
-        if seeds != None and len(seeds) > 0:
-            model.setSeeds(seeds)
-            for seed in seeds:
-                data = {seed: self._model.getGraph().nodes[seed]}
-                set_node_attributes(model.getGraph(), data)
-                
         tagger = Tagger()
-        tagger.setNext(TagRevenue(graph, model.getSeeds(), args[2]))
+        tagger.setNext(TagRevenue(graph, self._model.getSeeds(), args[2]))
         tagger.setNext(TagActiveNode())
-        model.diffusion(tagger)
-        # count = [0]*5
-        # for node, attr in graph.nodes(data=True):
-        #     l = len(attr["adopted_records"])
-        #     if len(count) < l:
-        #         count.extend([0]*(l-len(count) + 1))
-        #     count[l] += 1
-        # print(count)
+
+        for time in range(self.simulationTimes):
+            # initialize for Monte Carlo Simulation
+            model.getGraph().initAttr()
+            seeds = self._model.getSeeds()
+            if seeds != None and len(seeds) > 0:
+                model.setSeeds(seeds)
+                for seed in seeds:
+                    data = {seed: self._model.getGraph().nodes[seed]}
+                    set_node_attributes(model.getGraph(), data)
+                    model.getGraph().nodes[seed]["adopted_records"] = list()
+
+            model.diffusion(tagger)
+
+        tagger["TagRevenue"].avg(self.simulationTimes)
+        tagger["TagActiveNode"].avg(self.simulationTimes)
         return tagger
     
     def simulation(self, candidatedCoupons:list[Coupon]):
@@ -291,12 +296,11 @@ class Algorithm:
         '''
         
         candidatedCoupons = candidatedCoupons[:]
-        max_expected_path = dict()
 
         if len(candidatedCoupons) == 0:
-            return [], self._parallel((0,[],max_expected_path))
+            return [], self._parallel((0,[],self._max_expected_path))
         
-        coupons = [(i, [candidatedCoupons[i]], max_expected_path) for i in range(len(candidatedCoupons))]
+        coupons = [(i, [candidatedCoupons[i]], self._max_expected_path) for i in range(len(candidatedCoupons))]
         output = [] # the coupon set which is maximum revenue 
         revenue = 0
         tagger = None
@@ -321,6 +325,9 @@ class Algorithm:
                 if result[i]["TagRevenue"].expected_amount() > maxMargin:
                     maxMargin = result[i]["TagRevenue"].expected_amount()
                     maxIndex = i
+                elif result[i]["TagRevenue"].expected_amount() == maxMargin:
+                    if result[i]["TagActiveNode"].expected_amount() > result[maxIndex]["TagActiveNode"].expected_amount():
+                        maxIndex = i
             
             # if these coupons are more benfit than current coupons, add it and update 
             if maxMargin > revenue:
@@ -328,7 +335,7 @@ class Algorithm:
                 revenue = maxMargin
                 tagger = result[maxIndex]
                 del candidatedCoupons[maxIndex]
-                coupons = [(i, coupons[maxIndex][1] + [candidatedCoupons[i]], max_expected_path) for i in range(len(candidatedCoupons))]
+                coupons = [(i, coupons[maxIndex][1] + [candidatedCoupons[i]], self._max_expected_path) for i in range(len(candidatedCoupons))]
                 
             else:
                 break
@@ -339,14 +346,13 @@ class Algorithm:
 
         pool = ThreadPool(cpu_count())
         candidatedCoupons = candidatedCoupons[:]
-        couponSzie = min(len(candidatedCoupons), self._limitNum)
+        couponSize = min(len(candidatedCoupons), self._limitNum)
 
         couponsPowerset = []
         i = 0
-        max_expected_path = dict()
-        for size in range(couponSzie + 1): 
+        for size in range(couponSize + 1): 
             for comb in combinations(candidatedCoupons, size):
-                couponsPowerset.append((i, list(comb), max_expected_path))
+                couponsPowerset.append((i, list(comb), self._max_expected_path))
                 i += 1
 
         result = pool.map(self._parallel, couponsPowerset)
@@ -364,7 +370,7 @@ class Algorithm:
 
         return couponsPowerset[maxIndex][1], result[maxIndex]
     
-    def _move(self, current_solution, candidated):
+    def _move(self, current_solution, candidated): # pragma: no cover
         neighbors_solution = current_solution[:]
 
         p = random.uniform(0, 1)
@@ -391,7 +397,7 @@ class Algorithm:
 
         return neighbors_solution
 
-    def simulated_annealing(self, candidatedCoupons, initial_temperature=10000, cooling_rate=2, number_inner_iter=1000, stopping_temperature=1000):
+    def simulated_annealing(self, candidatedCoupons, initial_temperature=10000, cooling_rate=2, number_inner_iter=1000, stopping_temperature=1000): # pragma: no cover
 
         current_solution = []
         current_temperature = initial_temperature
@@ -399,7 +405,6 @@ class Algorithm:
         # and the value is the reverse of result in whole diffusion.
         count_inner_iter = 0
         couponSzie = min(len(candidatedCoupons), self._limitNum)
-        max_expected_path = dict()
 
         while current_temperature > stopping_temperature:
 
@@ -408,7 +413,7 @@ class Algorithm:
                 new_solution = self._move(current_solution, candidatedCoupons)
 
             pool = ThreadPool(cpu_count())
-            args = [("current", current_solution, max_expected_path), ("new", new_solution, max_expected_path)]
+            args = [("current", current_solution, self._max_expected_path), ("new", new_solution, self._max_expected_path)]
             result = pool.map(self._parallel, args)
             pool.close()
             pool.join()

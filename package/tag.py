@@ -161,7 +161,8 @@ class TagRevenue(Tagger):
         # price multi maximum expected probability
         self._expected_amount += params["amount"]*self._max_expected[det]
         self._amount += params["amount"]
-        self._params["max_expected"] = self._max_expected
+        if "max_expected" not in self._params:
+            self._params["max_expected"] = self._max_expected
         super().tag(self._params)
 
     def amount(self):
@@ -169,6 +170,10 @@ class TagRevenue(Tagger):
     
     def expected_amount(self):
         return self._expected_amount
+    
+    def avg(self, times):
+        self._amount = self._amount/times
+        self._expected_amount = self._expected_amount/times
     
 class TagActiveNode(Tagger):
     def __init__(self):
@@ -184,7 +189,7 @@ class TagActiveNode(Tagger):
                              
         node = self._params["node"]
         node_id = self._params["node_id"]
-        if len(node["adopted_records"]) > 0:
+        if len(node["adopted_records"]) == 1:
             self._expected_amount += self._params["max_expected"][node_id]
             self._distirbution[math.floor(self._params["max_expected"][node_id]*10)] += 1
             self._amount += 1
@@ -196,5 +201,9 @@ class TagActiveNode(Tagger):
     def expected_amount(self):
         return self._expected_amount
     
-    def distribution(self):
+    def avg(self, times):
+        self._amount = self._amount/times
+        self._expected_amount = self._expected_amount/times
+    
+    def distribution(self): # pragma: no cover
         return self._distirbution

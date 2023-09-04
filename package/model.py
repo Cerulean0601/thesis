@@ -93,7 +93,9 @@ class DiffusionModel():
             if self._graph.convertDirected(): # 如果原圖是無向圖, 則此條邊的另一個方向也無法再使用
                 self._graph.edges[det, src]["is_tested"] = True
 
-            if uniform(0, 1) <= edge["weight"]:
+            # the attribute "is_active" is for tracing case easily 
+            condition = edge["is_active"] if "is_active" in edge else uniform(0, 1) <= edge["weight"]
+            if condition:
                 self._graph.nodes[det]["desired_set"] = self._itemset.union(
                     self._graph.nodes[det]["desired_set"],
                     itemset
@@ -121,53 +123,63 @@ class DiffusionModel():
 
             self.allocate(self._seeds, items)
 
-        propagatedQueue = Queue()
+        # push the node who will adopt items at this step
+        adoptionQueue = Queue()
         for seed in self._seeds:
             logging.debug("Allocate {0} to {1}".format(self._graph.nodes[seed]["desired_set"], seed))
-            propagatedQueue.put((None, seed))
+            adoptionQueue.put((None, seed))
 
         logging.info("Allocation is complete.")
         
-        while not propagatedQueue.empty():
-            src, det = propagatedQueue.get()
-            node_id = det
+        # push the node who have adopted items at this step
+        propagatedQueue = Queue()
 
-            trade = self._user_proxy.adopt(node_id)
-            
-            # 如果沒購買任何東西則跳過此使用者不做後續的流程
-            if trade == None:
-                continue
+        while not adoptionQueue.empty():
+            while not adoptionQueue.empty():
+                src, det = adoptionQueue.get()
+                node_id = det
 
-            '''
-                taggerParam = {
-                    mainItemset: 主商品組合
-                    seed: 節點屬於哪個種子群 (Algorithm) 
-                    expectedProbability: 影響期望值
-                    coupon: 該節點使用哪個優惠方案
-                    node: 節點
-                }
-            '''
-            
-            if trade["coupon"] is None:
-                trade["mainItemset"] = trade["decision_items"]
-            logging.debug("Parameters of tagger------------------------------ ")
-            for k, v in trade.items():
-                logging.debug("{0}: {1}".format(k, v))
-            logging.debug("--------------------------------")
+                trade = self._user_proxy.adopt(node_id)
+                
+                # 如果沒購買任何東西則跳過此使用者不做後續的流程
+                if trade == None:
+                    continue
 
-            trade["src"] = src
-            trade["det"] = node_id
-            
-            if tagger != None:
-                tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id])
-            logging.info("user {0} traded {1}".format(node_id, trade["tradeOff_items"]))
-            
-            for out_neighbor in self._graph.neighbors(node_id):
-                is_activated  = self._propagate(node_id, out_neighbor, trade["decision_items"])
-                logging.info("{0} tries to activate {1}: {2}".format(node_id, det, is_activated))
-                if is_activated:
-                    logging.debug("{0}'s desired_set: {1}".format(det, self._graph.nodes[det]["desired_set"]))
-                    propagatedQueue.put((node_id, out_neighbor))
+                '''
+                    taggerParam = {
+                        mainItemset: 主商品組合
+                        seed: 節點屬於哪個種子群 (Algorithm) 
+                        expectedProbability: 影響期望值
+                        coupon: 該節點使用哪個優惠方案
+                        node: 節點
+                    }
+                '''
+                
+                if trade["coupon"] is None:
+                    trade["mainItemset"] = trade["decision_items"]
+                logging.debug("Parameters of tagger------------------------------ ")
+                for k, v in trade.items():
+                    logging.debug("{0}: {1}".format(k, v))
+                logging.debug("--------------------------------")
+
+                trade["src"] = src
+                trade["det"] = node_id
+                
+                if tagger != None:
+                    tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id])
+                logging.info("user {0} traded {1}".format(node_id, trade["tradeOff_items"]))
+                propagatedQueue.put((node_id, trade["tradeOff_items"]))
+                adoptionQueue.task_done()
+
+            while not propagatedQueue.empty():
+                node_id, tradeOff_items = propagatedQueue.get()
+                for out_neighbor in self._graph.neighbors(node_id):
+                    is_activated  = self._propagate(node_id, out_neighbor, tradeOff_items)
+                    logging.info("{0} tries to activate {1}: {2}".format(node_id, det, is_activated))
+                    if is_activated:
+                        logging.debug("{0}'s desired_set: {1}".format(det, self._graph.nodes[det]["desired_set"]))
+                        adoptionQueue.put((node_id, out_neighbor))
+                propagatedQueue.task_done()
 
     # def save(self, dir_path):
 

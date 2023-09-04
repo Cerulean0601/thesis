@@ -1,14 +1,14 @@
 import re
 import networkx as nx
 
-def preprocessingText(text):
+def preprocessingText(text): # pragma: no cover
     '''
         把標點符號和'\n'替換成空白，並且全部變為小寫
     '''
     text = re.sub('[!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]', ' ', text).lower()
     return text.replace('\n', ' ')
 
-def extractTokensWithID(name, path_dataset):
+def extractTokensWithID(name, path_dataset): # pragma: no cover
     '''
         針對預處理後的不同資料集來源, 實作不同提取token的方法, 並且回傳物品或使用者id和對應的token
         Args:
@@ -46,7 +46,7 @@ def extractTokensWithID(name, path_dataset):
             ids.append(id)
     return ids, list_tokens
 
-def getItemsPrice(filename) -> list:
+def getItemsPrice(filename) -> list: # pragma: no cover
     prices = dict()
 
     with open(filename, "r", encoding="utf8") as dataFile:
@@ -56,7 +56,7 @@ def getItemsPrice(filename) -> list:
             prices[id] = float(price[:-1])
     return prices
 
-def read_items(filename):
+def read_items(filename): # pragma: no cover
     dataset = dict()
     with open(filename) as file:
         next(file)

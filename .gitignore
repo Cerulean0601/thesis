@@ -7,3 +7,6 @@ nltk_data/
 .vscode/
 result/
 Untitled-1.ipynb
+.coverage
+htmlcov/
+

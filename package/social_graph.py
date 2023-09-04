@@ -218,7 +218,7 @@ class SN_Graph(nx.DiGraph):
     def _initNode(self, id, **attr):
         self.nodes[id]["desired_set"] = None
         self.nodes[id]["adopted_set"] = None
-        self.nodes[id]["adopted_records"] = []
+        self.nodes[id]["adopted_records"] = list()
         if self.topic != None:
             self.nodes[id]["topic"] = self.topic[id]
 
@@ -240,7 +240,7 @@ class SN_Graph(nx.DiGraph):
 
         # 取log是為了連乘=>log(a*b)=loga+logb
         # 取負數是要轉換為最短路徑問題
-        nx.set_edge_attributes(graph, {(u, v): {"weight": -(math.log10(data["weight"]))} for u, v, data in graph.edges(data=True)})
+        nx.set_edge_attributes(graph, {(u, v): {"weight": -(math.log10(data["weight"])) if data["weight"] != 0 else 0} for u, v, data in graph.edges(data=True)})
 
         length, path = nx.multi_source_dijkstra(graph, seeds, weight="weight")
         for node, max_len in length.items():
@@ -249,7 +249,7 @@ class SN_Graph(nx.DiGraph):
             else:
                 _max_expected[node] = math.pow(10, -max_len)
 
-        nx.set_edge_attributes(graph, {(u, v): {"weight": math.pow(10, -data["weight"])} for u, v, data in graph.edges(data=True)})
+        nx.set_edge_attributes(graph, {(u, v): {"weight": math.pow(10, -data["weight"]) if data["weight"] != 0 else 0} for u, v, data in graph.edges(data=True)})
         return _max_expected, path
     
     @staticmethod
