@@ -2,7 +2,7 @@
 from networkx import set_node_attributes
 import logging
 import numpy as np
-from multiprocessing.pool import ThreadPool
+from multiprocessing import Pool
 import copy 
 from itertools import combinations
 from os import cpu_count
@@ -181,7 +181,7 @@ class Algorithm:
         # for seed in seeds:
         #     result.append(self._sumGroupExpTopic(seed))
 
-        pool = ThreadPool()
+        pool = Pool(cpu_count())
         result = pool.map(self._sumGroupExpTopic, [nodes for nodes in self._group.values()])
         pool.close()
         pool.join()
@@ -235,7 +235,7 @@ class Algorithm:
         # for seed in seeds:
         #     result.append(self._sumGroupExpTopic(seed))
 
-        pool = ThreadPool()
+        pool = Pool(cpu_count())
         result = pool.map(self._sumGroupExpTopic, [seed for seed in seeds])
         pool.close()
         pool.join()
@@ -312,7 +312,7 @@ class Algorithm:
                 3. Concatenate all of the candidateings with the maximize revenue coupon
             '''
 
-            pool = ThreadPool(cpu_count())
+            pool = Pool(cpu_count())
             result = pool.map(self._parallel, coupons)
             pool.close()
             pool.join()
@@ -344,7 +344,7 @@ class Algorithm:
     
     def optimalAlgo(self, candidatedCoupons:list):
 
-        pool = ThreadPool(cpu_count())
+        pool = Pool(cpu_count())
         candidatedCoupons = candidatedCoupons[:]
         couponSize = min(len(candidatedCoupons), self._limitNum)
 
@@ -412,7 +412,7 @@ class Algorithm:
             while len(new_solution) <= couponSzie:
                 new_solution = self._move(current_solution, candidatedCoupons)
 
-            pool = ThreadPool(cpu_count())
+            pool = Pool(cpu_count())
             args = [("current", current_solution, self._max_expected_path), ("new", new_solution, self._max_expected_path)]
             result = pool.map(self._parallel, args)
             pool.close()
@@ -529,7 +529,7 @@ class Algorithm:
 #                     graph.nodes[node]["adopted_set"] = None
 #                     user_proxy.setCoupons(coupons)
         
-#         pool = ThreadPool(cpu_count())
+#         pool = Pool(cpu_count())
 #         args = [(vp_table, i) for i in range(len(coupons), len(coupons_powerset))]
 #         result = pool.map(_parallel, args)
 #         for index in result:

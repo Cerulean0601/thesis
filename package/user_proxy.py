@@ -6,6 +6,7 @@ from multiprocessing.pool import ThreadPool
 from package.social_graph import SN_Graph
 from package.itemset import ItemsetFlyweight, Itemset
 from package.coupon import Coupon
+
 class UsersProxy():
     '''
       使用者的購買行為，包含挑選主商品、額外購買、影響成功後的行為

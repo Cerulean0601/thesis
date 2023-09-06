@@ -80,8 +80,8 @@ def main():
     
     algo = Algorithm(model,0)
     simluation_times = 10
-    performanceFile = r"./result/self.txt"
-    candidatedCoupons = algo.genSelfCoupons()
+    performanceFile = r"./result/greedy.txt"
+    candidatedCoupons = algo.genAllCoupons(10)
 
     for k in range(0,12):
                 
