@@ -76,9 +76,10 @@ class Algorithm:
         #             del seed
 
         tagger = Tagger()
-        tagger.setParams(group=self._group, max_expected=self._max_expected)
         tagger.setNext(TagMainItemset())
         tagger.setNext(TagAppending(sub_model.getItemsetHandler()))
+        tagger.setParams(group=self._group, max_expected=self._max_expected)
+
         sub_model.diffusion(tagger)
 
         return tagger
@@ -173,8 +174,8 @@ class Algorithm:
             self._model.allocate(seeds, items)
         
         tagger = self._preprocessing()
-        mainItemset = tagger.getNext()
-        appending = mainItemset.getNext()
+        mainItemset = tagger["TagMainItemset"]
+        appending = tagger["TagAppending"]
         
 
         # result = []

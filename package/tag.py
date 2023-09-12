@@ -40,7 +40,9 @@ class Tagger(TagImplement):
         for tagger in self._pipeline:
             self.setParams(params, **kwargs)
             params = tagger.tag(self._params)
-    
+            
+        self.setParams(params, **kwargs)
+
     def __getitem__(self, key):
         return self._map[key]
 
@@ -80,6 +82,8 @@ class TagMainItemset(TagImplement):
             if "None" in self.table[group]:
                 del self.table[group]["None"]
 
+        return self._params
+    
     def maxExcepted(self, group):
         if len(self.table[group]) == 0:
             return None
@@ -133,7 +137,9 @@ class TagAppending(TagImplement):
         for group in self.table.keys():
             if "None" in self.table[group]:
                 del self.table[group]["None"]
-                    
+
+        return self._params
+               
     def maxExcepted(self, group):
         if len(self.table[group]) == 0:
             return None
@@ -191,6 +197,8 @@ class TagActiveNode(TagImplement):
             self._distirbution[math.floor(self._params["max_expected"][node_id]*10)] += 1
             self._amount += 1
 
+        return self._params
+    
     def amount(self):
         return self._amount
     
@@ -219,6 +227,8 @@ class TagNonActive(TagImplement):
         
         if len(node["adopted_records"]) == 0:
             self._amount += 1
+
+        return self._params
     
     def amount(self):
         return self._amount
