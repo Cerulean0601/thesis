@@ -134,7 +134,10 @@ class DiffusionModel():
         # push the node who have adopted items at this step
         propagatedQueue = Queue()
 
+        # Loop until no one adopted items at the previous step
         while not adoptionQueue.empty():
+            
+            # Loop until everyone check to decide whether adopt items
             while not adoptionQueue.empty():
                 src, det = adoptionQueue.get()
                 node_id = det
@@ -143,6 +146,7 @@ class DiffusionModel():
                 
                 # 如果沒購買任何東西則跳過此使用者不做後續的流程
                 if trade == None:
+                    tagger["TagNonActive"].tag(node=self._graph.nodes[node_id])
                     continue
 
                 '''
@@ -167,6 +171,7 @@ class DiffusionModel():
                 
                 if tagger != None:
                     tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id])
+
                 logging.info("user {0} traded {1}".format(node_id, trade["tradeOff_items"]))
                 propagatedQueue.put((node_id, trade["tradeOff_items"]))
                 adoptionQueue.task_done()

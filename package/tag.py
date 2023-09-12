@@ -6,42 +6,45 @@ import numpy as np
 from package.itemset import ItemsetFlyweight
 from package.social_graph import SN_Graph
 
-class Tagger:
-    def __init__(self):
-        self._next = None
+class TagImplement:
+    def __init__(self) -> None:
         self._params = dict()
-        self._map = dict()
 
-    def setNext(self, tag):
-        
-        lastObj = self
-        while lastObj._next is not None:
-            lastObj = lastObj._next
-        
-        lastObj._next = tag
-        self._map[type(tag).__name__] = tag
-
-    def getNext(self):
-        return self._next
-    
     def setParams(self, param=dict(), **kwargs):
         for k, v in param.items():
             self._params[k] = v
 
         for k, v in kwargs.items():
             self._params[k] = v
-        
-    def tag(self, params, **kwargs):
-        ''' implement in child class'''
-        self.setParams(params, **kwargs)
 
-        if self._next:
-            self._next.tag(self._params)
+    def tag():
+        pass
+
+class Tagger(TagImplement):
+    def __init__(self):
+        super().__init__()
+        self._map = dict()
+        self._pipeline = list()
+
+    def set(self, tag):
+        self._map[type(tag).__name__] = tag
+
+    def setNext(self, tag):
+        
+        self._pipeline.append(tag)
+        self._map[type(tag).__name__] = tag
+
+    def tag(self, params=dict(), **kwargs):
+        ''' implement in child class'''
+        
+        for tagger in self._pipeline:
+            self.setParams(params, **kwargs)
+            params = tagger.tag(self._params)
     
     def __getitem__(self, key):
         return self._map[key]
 
-class TagMainItemset(Tagger):
+class TagMainItemset(TagImplement):
     def __init__(self):
         super().__init__()
         self.table = dict()
@@ -51,7 +54,6 @@ class TagMainItemset(Tagger):
 
     def tag(self, params=dict(), **kwargs):
         self.setParams(params, **kwargs)
-
         itemset = self._params["mainItemset"]
         node_id = self._params["node_id"]
 
@@ -78,14 +80,12 @@ class TagMainItemset(Tagger):
             if "None" in self.table[group]:
                 del self.table[group]["None"]
 
-        super().tag(self._params)
-
     def maxExcepted(self, group):
         if len(self.table[group]) == 0:
             return None
         return max(self.table[group], key=self.table[group].get)
     
-class TagAppending(Tagger):
+class TagAppending(TagImplement):
     '''
         Appending 與 Addtional 不同, Appeding是沒有優惠方案下與主商品搭配時, 效益最高的附加品。
     '''
@@ -118,7 +118,7 @@ class TagAppending(Tagger):
         if seed not in self.table:
             self.table[seed] = dict()
         
-        obj = self._itemset.maxSupersetValue(params["node"]["topic"], mainItemset)
+        obj = self._itemset.maxSupersetValue(self._params["node"]["topic"], mainItemset)
         logging.debug("Node: {0}, Maxum benfit itemset: {1}, Probability {2}".format(node_id, str(obj), expectedProbability))
 
         addItemset = self._itemset.difference(obj, mainItemset)
@@ -133,37 +133,34 @@ class TagAppending(Tagger):
         for group in self.table.keys():
             if "None" in self.table[group]:
                 del self.table[group]["None"]
-                
-        super().tag(self._params)
-    
+                    
     def maxExcepted(self, group):
         if len(self.table[group]) == 0:
             return None
         
         return max(self.table[group], key=self.table[group].get)
 
-class TagRevenue(Tagger):
+class TagRevenue(TagImplement):
     def __init__(self, graph, seeds, max_expected=dict()):
         super().__init__()
         self._amount = 0
         self._expected_amount = 0
         self._seeds = seeds
-        self._compile_graph, self._max_expected = SN_Graph.compile_max_product_graph(graph, self._seeds)
         self._graph = graph
+        self._compile_graph, self._max_expected = SN_Graph.compile_max_product_graph(graph, self._seeds)
         for seed in self._seeds:
             self._max_expected[seed] = 1
 
     def tag(self, params, **kwargs):
-
         self.setParams(params, **kwargs)
-        
         det = self._params["det"]
         # price multi maximum expected probability
-        self._expected_amount += params["amount"]*self._max_expected[det]
-        self._amount += params["amount"]
+        self._expected_amount += self._params["amount"]*self._max_expected[det]
+        self._amount += self._params["amount"]
         if "max_expected" not in self._params:
             self._params["max_expected"] = self._max_expected
-        super().tag(self._params)
+        
+        return self._params
 
     def amount(self):
         return self._amount
@@ -175,7 +172,7 @@ class TagRevenue(Tagger):
         self._amount = self._amount/times
         self._expected_amount = self._expected_amount/times
     
-class TagActiveNode(Tagger):
+class TagActiveNode(TagImplement):
     def __init__(self):
         super().__init__()
         self._amount = 0
@@ -193,7 +190,6 @@ class TagActiveNode(Tagger):
             self._expected_amount += self._params["max_expected"][node_id]
             self._distirbution[math.floor(self._params["max_expected"][node_id]*10)] += 1
             self._amount += 1
-        super().tag(self._params)
 
     def amount(self):
         return self._amount
@@ -204,6 +200,28 @@ class TagActiveNode(Tagger):
     def avg(self, times):
         self._amount = self._amount/times
         self._expected_amount = self._expected_amount/times
+        self._distirbution = [num/times for num in self._distirbution]
     
     def distribution(self): # pragma: no cover
         return self._distirbution
+
+class TagNonActive(TagImplement):
+    def __init__(self):
+        super().__init__()
+        self._amount = 0
+
+    def tag(self, params=dict(), **kwargs):
+        '''
+            記錄第一次購買的使用者在第一階段購買時，未購買成功的情況
+        '''
+        self.setParams(params, **kwargs)
+        node = self._params["node"]
+        
+        if len(node["adopted_records"]) == 0:
+            self._amount += 1
+    
+    def amount(self):
+        return self._amount
+    
+    def avg(self, times):
+        self._amount = self._amount/times

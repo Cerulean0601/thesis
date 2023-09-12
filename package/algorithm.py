@@ -272,6 +272,7 @@ class Algorithm:
         tagger = Tagger()
         tagger.setNext(TagRevenue(graph, self._model.getSeeds(), args[2]))
         tagger.setNext(TagActiveNode())
+        tagger.set(TagNonActive())
 
         for time in range(self.simulationTimes):
             # initialize for Monte Carlo Simulation
@@ -288,6 +289,7 @@ class Algorithm:
 
         tagger["TagRevenue"].avg(self.simulationTimes)
         tagger["TagActiveNode"].avg(self.simulationTimes)
+        tagger["TagNonActive"].avg(self.simulationTimes)
         return tagger
     
     def simulation(self, candidatedCoupons:list[Coupon]):
