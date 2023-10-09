@@ -46,7 +46,7 @@ class Itemset():
     
     def __hash__(self) -> int:
         return hash(self.__str__)
-    
+
     def empty(self):
         return len(self.numbering) == 0
 

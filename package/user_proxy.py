@@ -170,7 +170,7 @@ class UsersProxy():
                 diff_adopted = self._itemset.difference(itemset_instance, self._graph.nodes[user_id]["adopted_set"])
                 intersection = self._itemset.intersection(diff_adopted, coupon.accItemset)
                 
-                if intersection != None and intersection.price > coupon.accThreshold:
+                if intersection != None and intersection.price >= coupon.accThreshold:
                     VP = self._addtionallyAdoptVP(user_id, mainItemset, itemset_instance, coupon)
                     logging.debug("User {0}, items {1}, VP_ratio {2}, Coupon {3}".format(user_id, itemset_instance, VP, coupon))
                     result = {"items": itemset_instance, "VP": VP, "coupon": coupon}
@@ -252,7 +252,7 @@ class UsersProxy():
 
         trade = dict()
         
-
+        trade["mainItemset"] = mainItemset["items"]
         trade["decision_items"] = mainItemset["items"]
         trade["tradeOff_items"] = self._itemset.difference(trade["decision_items"], self._graph.nodes[user_id]["adopted_set"])
         trade["amount"] = trade["tradeOff_items"].price

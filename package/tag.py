@@ -46,6 +46,9 @@ class Tagger(TagImplement):
     def __getitem__(self, key):
         return self._map[key]
 
+    def __contains__(self, key):
+        return key in self._map
+
 class TagMainItemset(TagImplement):
     def __init__(self):
         super().__init__()
@@ -218,7 +221,7 @@ class TagNonActive(TagImplement):
         super().__init__()
         self._amount = 0
 
-    def tag(self, params=dict(), **kwargs):
+    def tag(self, params, **kwargs):
         '''
             記錄第一次購買的使用者在第一階段購買時，未購買成功的情況
         '''
@@ -235,3 +238,34 @@ class TagNonActive(TagImplement):
     
     def avg(self, times):
         self._amount = self._amount/times
+
+class TagDecidedMainItemset(TagImplement):
+    def __init__(self):
+        super().__init__()
+        # the key of this dictionary is a string of the itemset, 
+        # and the value is a list that count the number of itemset is adopt by a user at the step.
+        self._record = dict()
+
+    def tag(self, params, **kwargs):
+        '''
+            記錄隨著diffusion的疊代次數增加
+        '''
+        self.setParams(params, **kwargs)
+        step = self._params["step"]
+        key = str(self._params["mainItemset"])
+        if key not in self._record:
+            self._record[key] = list()
+            
+        while len(self._record[key])-1 < step:
+            self._record[key].append(0)
+
+        self._record[key][step] += 1
+
+        return self._params
+    
+    def items(self):
+        return self._record.items()
+    
+    def avg(self, times):
+        for key in self._record.keys():
+            self._record[key] = [n/times for n in self._record[key]]

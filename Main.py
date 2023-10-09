@@ -78,12 +78,13 @@ def main():
     seeds = model.selectSeeds(seed_size)
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
     
-    algo = Algorithm(model,0)
+    
     simluation_times = 10
+    algo = Algorithm(model, 0, simluation_times)
     performanceFile = r"./result/greedy.txt"
     candidatedCoupons = algo.genAllCoupons(10)
 
-    for k in range(0,12):
+    for k in range(0,3):
                 
         algo.setLimitCoupon(k)
         start_time = time()

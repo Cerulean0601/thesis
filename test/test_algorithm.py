@@ -78,10 +78,12 @@ class TestAlgorithm(unittest.TestCase):
                    Coupon(280, itemset["iPhone AirPods"], 50, itemset["AirPods"])]
         
         algo = Algorithm(self._model, 2)
-        outputCoupon, tagger = algo.simulation(coupons)
+        for k in range(2, 5):
+            outputCoupon, tagger = algo.simulation(coupons)
+            self.assertListEqual([coupons[0]], outputCoupon, "The output of coupons is not correct.")
+            self.assertEqual(tagger["TagRevenue"].expected_amount(), 1770, "Revenue is not correct.")
+            self.assertEqual(tagger["TagActiveNode"].expected_amount(), 3.5, "The number of expected active node is not correct.")
+
         '''
             While coupon[0] is in the output, the revenue is reduced if we append coupon[1]
         '''
-        self.assertListEqual([coupons[0]], outputCoupon, "The output of coupons is not correct.")
-        self.assertEqual(tagger["TagRevenue"].expected_amount(), 1770, "Revenue is not correct.")
-        self.assertEqual(tagger["TagActiveNode"].expected_amount(), 3.5, "The number of expected active node is not correct.")

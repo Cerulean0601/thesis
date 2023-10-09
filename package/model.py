@@ -135,6 +135,7 @@ class DiffusionModel():
         propagatedQueue = Queue()
 
         # Loop until no one adopted items at the previous step
+        step = 0
         while not adoptionQueue.empty():
             
             # Loop until everyone check to decide whether adopt items
@@ -146,7 +147,8 @@ class DiffusionModel():
                 
                 # 如果沒購買任何東西則跳過此使用者不做後續的流程
                 if trade == None:
-                    tagger["TagNonActive"].tag(node=self._graph.nodes[node_id])
+                    if "TagNonActive" in tagger:
+                        tagger["TagNonActive"].tag(node=self._graph.nodes[node_id])
                     continue
 
                 '''
@@ -159,8 +161,6 @@ class DiffusionModel():
                     }
                 '''
                 
-                if trade["coupon"] is None:
-                    trade["mainItemset"] = trade["decision_items"]
                 logging.debug("Parameters of tagger------------------------------ ")
                 for k, v in trade.items():
                     logging.debug("{0}: {1}".format(k, v))
@@ -170,12 +170,13 @@ class DiffusionModel():
                 trade["det"] = node_id
                 
                 if tagger != None:
-                    tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id])
+                    tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id], step=step)
 
                 logging.info("user {0} traded {1}".format(node_id, trade["tradeOff_items"]))
                 propagatedQueue.put((node_id, trade["tradeOff_items"]))
                 adoptionQueue.task_done()
 
+            step += 1
             while not propagatedQueue.empty():
                 node_id, tradeOff_items = propagatedQueue.get()
                 for out_neighbor in self._graph.neighbors(node_id):
