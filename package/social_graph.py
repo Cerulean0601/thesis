@@ -2,7 +2,7 @@ import networkx as nx
 import queue
 import random
 import logging
-import math
+import numpy as np
 from copy import deepcopy
 
 from package.topic import TopicModel
@@ -13,7 +13,7 @@ class SN_Graph(nx.DiGraph):
         Note: 邊的權重若預設為1/(v_indegree)，則(v,u)和(u,v)的權重並不相同，因此用有向圖替代無向圖
 
         Param:
-            located (bool): Whether the orignal social network is direct. Default is False.
+            located (bool): Whether the orignal social network is direct. Default is True.
 
         Attribute of Node:
             desired_set(string, Itemset)
@@ -233,29 +233,35 @@ class SN_Graph(nx.DiGraph):
         self._initAllEdges()
         self._initAllNodes()
 
+    def resetAttr(self):
+        for node_id in self:
+            if self.nodes[node_id]["desired_set"] != None:
+                self._initNode(node_id)
+        
+        for src, det in self.edges:
+            self.edges[src, det]["is_tested"] = False
+            
     @staticmethod
     def max_product_path(graph, seeds, cutoff=10**(-6)):
 
-        _max_expected = dict()
-
         # 取log是為了連乘=>log(a*b)=loga+logb
         # 取負數是要轉換為最短路徑問題
-        nx.set_edge_attributes(graph, {(u, v): {"weight": -(math.log10(data["weight"])) if data["weight"] != 0 else 0} for u, v, data in graph.edges(data=True)})
+        nx.set_edge_attributes(graph, {(u, v): {"weight": -(np.log10(data["weight"])) if data["weight"] != 0 else 0} for u, v, data in graph.edges(data=True)})
 
         length, path = nx.multi_source_dijkstra(graph, seeds, weight="weight")
         for node, max_len in length.items():
             if node in seeds:
-                _max_expected[node] = 1
+                length[node] = 1
             else:
-                _max_expected[node] = math.pow(10, -max_len)
+                length[node] = np.power(10, -max_len)
 
-        nx.set_edge_attributes(graph, {(u, v): {"weight": math.pow(10, -data["weight"]) if data["weight"] != 0 else 0} for u, v, data in graph.edges(data=True)})
-        return _max_expected, path
+        nx.set_edge_attributes(graph, {(u, v): {"weight":np.power(10, -max_len) if data["weight"] != 0 else 0} for u, v, data in graph.edges(data=True)})
+        return length, path
     
     @staticmethod
     def compile_max_product_graph(graph, seeds):
 
-        if seeds is None or len(seeds) == 0:
+        if not seeds:
             raise ValueError("The seed set is empty!")
         
         tree_graph = SN_Graph(node_topic=graph.getAllTopics(), located=graph.convertDirected())

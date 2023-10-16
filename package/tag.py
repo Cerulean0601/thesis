@@ -157,8 +157,6 @@ class TagRevenue(TagImplement):
         self._seeds = seeds
         self._graph = graph
         self._compile_graph, self._max_expected = SN_Graph.compile_max_product_graph(graph, self._seeds)
-        for seed in self._seeds:
-            self._max_expected[seed] = 1
 
     def tag(self, params, **kwargs):
         self.setParams(params, **kwargs)
