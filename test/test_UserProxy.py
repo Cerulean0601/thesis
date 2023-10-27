@@ -5,9 +5,6 @@ from package.coupon import Coupon
 from package.user_proxy import UsersProxy
 
 class TestUserProxy(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super(TestUserProxy, self).__init__(*args, **kwargs)
-
     def setUp(self) -> None:
         topic = {
             '0': [0.7, 0.3],
@@ -20,7 +17,7 @@ class TestUserProxy(unittest.TestCase):
         }
         prices = {"0":200, "1":260, "2":60}
         self._itemset = ItemsetFlyweight(prices = prices, topic = topic)
-        self._graph = SN_Graph()
+        self._graph = SN_Graph(located=False)
         self._coupons = [Coupon(180, ["0"], 20, ["0","1"]),]
         self._user_proxy = UsersProxy(self._graph, self._itemset, self._coupons, 0)
 
@@ -85,3 +82,41 @@ class TestUserProxy(unittest.TestCase):
 
         self._itemset["0 1 2"].topic = origin_topic
         # 交易金額等於折扣金額
+    
+class TestAdoptMainItemset(unittest.TestCase):
+    def setUp(self) -> None:
+        itemset_topic = {
+            '0': [0.7, 0.3],
+            '1': [0.8, 0.2],
+            '2': [0.5, 0.5],
+            '0 1': [0, 1],
+            '0 2': [0.4, 0.6],
+            '1 2': [0.3, 0.7],
+            '0 1 2': [0.6, 0.7]
+        }
+        prices = {"0":200, "1":260, "2":60}
+
+        self._itemset = ItemsetFlyweight(prices = prices, topic = itemset_topic)
+        self._graph = SN_Graph(node_topic={0:[0.9, 0.1]},located=False)
+        self._user_proxy = UsersProxy(self._graph, self._itemset, coupons=[], threshold=0)
+
+        self._graph.add_node(0)
+        self._graph._initAllNodes()
+        return super().setUp()
+    
+    def test_empty_desired_set(self):
+        result = self._user_proxy._adoptMainItemset(0)
+        self.assertIsNone(result)
+
+    def test_desired_set(self):
+        self._graph.nodes[0]["desired_set"] = self._itemset["0 1"]
+        result = self._user_proxy._adoptMainItemset(0)
+        self.assertEqual(result["items"], self._itemset["0"])
+        self.assertAlmostEqual(result["VP"], 0.0033)
+
+    def test_desired_set_equal_adopted_set(self):
+        self._graph.nodes[0]["desired_set"] = self._itemset["0 1"]
+        self._graph.nodes[0]["adopted_set"] = self._itemset["0 1"]
+        result = self._user_proxy._adoptMainItemset(0)
+        self.assertIsNone(result)
+    
