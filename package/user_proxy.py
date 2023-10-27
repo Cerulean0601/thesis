@@ -95,10 +95,10 @@ class UsersProxy():
         adopted_set = self._graph.nodes[user_id]["adopted_set"] 
 
         # If desired set is empty, or adopted set and desired set is equivalance, return None
-        if desired_set == None or adopted_set == desired_set:
+        if desired_set is None or adopted_set == desired_set:
             return None
 
-        if adopted_set == None:
+        if adopted_set is None:
             adopted_set = set()
             
 
@@ -117,7 +117,7 @@ class UsersProxy():
                         max_VP = VP
                         maxVP_mainItemset = X
 
-        if maxVP_mainItemset == None or self._itemset[maxVP_mainItemset] == adopted_set:
+        if maxVP_mainItemset is None or self._itemset[maxVP_mainItemset] == adopted_set:
             logging.debug("User {0} did not adopt any new item.".format(user_id))
             return None
         

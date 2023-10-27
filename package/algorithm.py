@@ -267,9 +267,9 @@ class Algorithm:
     def _parallel(self, args):
         coupon = args[1]
         graph = copy.deepcopy(self._model.getGraph())
-        
+    
         model = DiffusionModel("", graph, self._model.getItemsetHandler(), coupon, self._model.getThreshold())
-        
+    
         tagger = Tagger()
         tagger.setNext(TagRevenue(graph, self._model.getSeeds(), args[2]))
         tagger.setNext(TagActiveNode())
@@ -279,13 +279,14 @@ class Algorithm:
             # initialize for Monte Carlo Simulation
             model.getGraph().initAttr()
             seeds = self._model.getSeeds()
-            if seeds != None and len(seeds) > 0:
+            if seeds:
                 model.setSeeds(seeds)
+                data = dict()
                 for seed in seeds:
-                    data = {seed: self._model.getGraph().nodes[seed]}
-                    set_node_attributes(model.getGraph(), data)
-                    model.getGraph().nodes[seed]["adopted_records"] = list()
-
+                    data[seed] = self._model.getGraph().nodes[seed]
+                    data[seed]["adopted_records"] = list()
+                set_node_attributes(model.getGraph(), data)
+                
             model.diffusion(tagger)
 
         tagger["TagRevenue"].avg(self.simulationTimes)

@@ -89,7 +89,7 @@ class DiffusionModel():
         '''
         edge = self._graph.edges[src, det]
         if not edge["is_tested"]:
-            self._graph.edges[src, det]["is_tested"] = True
+            edge["is_tested"] = True
             if self._graph.convertDirected(): # 如果原圖是無向圖, 則此條邊的另一個方向也無法再使用
                 self._graph.edges[det, src]["is_tested"] = True
 

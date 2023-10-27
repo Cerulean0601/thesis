@@ -9,4 +9,5 @@ result/
 Untitled-1.ipynb
 .coverage
 htmlcov/
+*.csv
 
