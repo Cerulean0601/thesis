@@ -78,7 +78,6 @@ def main():
     seeds = model.selectSeeds(seed_size)
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
     
-    
     simluation_times = 10
     algo = Algorithm(model, 0, simluation_times)
     performanceFile = r"./result/greedy.txt"

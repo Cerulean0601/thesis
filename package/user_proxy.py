@@ -76,7 +76,7 @@ class UsersProxy():
   
     def _adoptMainItemset(self, user_id):
         '''
-            從使用者的 desired set 找出CP值最高的商品組合當作主商品並且回傳
+            使用者從 desired set 考量已購買過的商品以及CP值的商品組合, 選取CP值最高的商品組合當作主商品
 
             Args:
                 user_id (str): user id

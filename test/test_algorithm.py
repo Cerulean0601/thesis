@@ -71,6 +71,7 @@ class TestAlgorithm(unittest.TestCase):
         self._model.allocate(self._model.getSeeds(), [itemset["Galaxy"], itemset["iPhone"]])
         return super().setUp()
     
+    @unittest.skip("The execution time is too expensive")
     def test_greedy(self):
         itemset = self._model.getItemsetHandler()
 

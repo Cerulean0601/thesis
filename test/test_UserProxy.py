@@ -108,7 +108,7 @@ class TestAdoptMainItemset(unittest.TestCase):
         result = self._user_proxy._adoptMainItemset(0)
         self.assertIsNone(result)
 
-    def test_desired_set(self):
+    def test_emtpy_aopted_set(self):
         self._graph.nodes[0]["desired_set"] = self._itemset["0 1"]
         result = self._user_proxy._adoptMainItemset(0)
         self.assertEqual(result["items"], self._itemset["0"])
@@ -119,4 +119,22 @@ class TestAdoptMainItemset(unittest.TestCase):
         self._graph.nodes[0]["adopted_set"] = self._itemset["0 1"]
         result = self._user_proxy._adoptMainItemset(0)
         self.assertIsNone(result)
+    
+    def test_desired_set_insection_adopted_set(self):
+        self._graph.nodes[0]["desired_set"] = self._itemset["0 1"]
+        self._graph.nodes[0]["adopted_set"] = self._itemset["1 2"]
+        result = self._user_proxy._adoptMainItemset(0)
+        self.assertIsNone(result)
+
+    def test_desired_set_issubset_adopted_set(self):
+        self._graph.nodes[0]["desired_set"] = self._itemset["1"]
+        self._graph.nodes[0]["adopted_set"] = self._itemset["0 1"]
+        self.assertIsNone(self._user_proxy._adoptMainItemset(0))
+
+    def test_desired_set_issuperset_adopted_set(self):
+        self._graph.nodes[0]["desired_set"] = self._itemset["0 1"]
+        self._graph.nodes[0]["adopted_set"] = self._itemset["1"]
+        result = self._user_proxy._adoptMainItemset(0)
+        self.assertEqual(result["items"], self._itemset["0 1"])
+        self.assertAlmostEqual(result["VP"], 0.0005)
     
