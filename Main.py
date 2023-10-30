@@ -78,7 +78,7 @@ def main():
     seeds = model.selectSeeds(seed_size)
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
     
-    simluation_times = 10
+    simluation_times = 2
     algo = Algorithm(model, 0, simluation_times)
     performanceFile = r"./result/greedy.txt"
     candidatedCoupons = algo.genAllCoupons(10)
@@ -95,21 +95,21 @@ def main():
 
         end_time = time()
 
-        with open(performanceFile, "a") as record:
+        # with open(performanceFile, "a") as record:
             
-            record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},k={6}\n".format(
-                ctime(end_time),
-                (end_time - start_time),
-                tagger["TagRevenue"].amount(),
-                tagger["TagRevenue"].expected_amount(),
-                tagger["TagActiveNode"].amount(),
-                tagger["TagActiveNode"].expected_amount(),
-                k,
-                ))
+        #     record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},k={6}\n".format(
+        #         ctime(end_time),
+        #         (end_time - start_time),
+        #         tagger["TagRevenue"].amount(),
+        #         tagger["TagRevenue"].expected_amount(),
+        #         tagger["TagActiveNode"].amount(),
+        #         tagger["TagActiveNode"].expected_amount(),
+        #         k,
+        #         ))
             
-            for c in outputCoupons:
-                record.write(str(c) + "\n")
-            record.write("\n")
+        #     for c in outputCoupons:
+        #         record.write(str(c) + "\n")
+        #     record.write("\n")
 
 if __name__ == '__main__':    
     
