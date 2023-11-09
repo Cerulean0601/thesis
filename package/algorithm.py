@@ -51,6 +51,29 @@ class Algorithm:
                         coupons.append(Coupon(threshold, accItemset, discount, disItemset))
     
         return coupons
+    
+    def genDiscountItemCoupons(self, discounts: list) -> list[Coupon]:
+        '''
+            Generates a list of coupons that discount items with relative discount
+            
+            Args:
+                discounts: A list of relative discount
+
+            Returns:
+                a list of coupons
+        '''
+        items = self._itemset.getSingleItems()
+        coupons = list()
+
+        for item in items:
+            for discount in discounts:
+                if discount <= 0 or discount > 1:
+                    raise ValueError("the discount of coupon should be float type and positive.")
+                
+                coupon = Coupon(item.price, item, item.price*(1-discount), item)
+                coupons.append(coupon)
+        return coupons
+
     def _getGroupNum(self, node):
         for seed, group in self._group.items():
             if node in group:

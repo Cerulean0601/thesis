@@ -184,7 +184,9 @@ class ItemsetFlyweight():
         for numbering, obj in self.powerSet(numbering_of_items):
             yield numbering, obj
 
-
+    def getSingleItems(self) -> list[Itemset]:
+        return [obj for ids, obj in self.__iter__() if len(obj) == 1]
+    
     def _aggregateTopic(self, collection):
         aggregated = [0]*len(self._map[collection[0]].topic)
         coeff_list = []
