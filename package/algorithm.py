@@ -259,13 +259,6 @@ class Algorithm:
                 
             model.diffusion(tagger)
 
-            for node, attr in graph.nodes(data=True):
-                num = len(attr["adopted_records"])
-                while len(num_adoption) <= num:
-                    num_adoption.append(0)
-                num_adoption[num] += 1
-
-        print([num/self.simulationTimes for num in num_adoption])
         tagger["TagRevenue"].avg(self.simulationTimes)
         tagger["TagActiveNode"].avg(self.simulationTimes)
 

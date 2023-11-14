@@ -207,7 +207,6 @@ class SN_Graph(nx.DiGraph):
     def _initEdge(self, src, det, **attr):
         self.edges[src, det]["weight"] = self._weightingEdge(src, det)
         self.edges[src, det]["is_tested"] = False
-        self.edges[src, det]["is_active"] = True
         
         for key, value in attr.items():
             self.edges[src, det][key] = value
