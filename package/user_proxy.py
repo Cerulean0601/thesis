@@ -272,7 +272,7 @@ class UsersProxy():
         if trade["VP"] >= self._threshold:
             self._graph.nodes[user_id]["adopted_set"] = self._itemset.union(
                                     self._graph.nodes[user_id]["adopted_set"],
-                                    trade["tradeOff_items"])
+                                    trade["decision_items"])
 
             self._graph.nodes[user_id]["adopted_records"].append([trade["tradeOff_items"], trade["coupon"], trade["amount"]])
             return trade

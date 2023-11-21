@@ -244,7 +244,6 @@ class Algorithm:
         tagger.setNext(TagActiveNode())
         tagger.setNext(TagDecidedMainItemset())
 
-        num_adoption = list()
         for time in range(self.simulationTimes):
             # initialize for Monte Carlo Simulation
             graph.initAttr()
@@ -253,12 +252,12 @@ class Algorithm:
                 model.setSeeds(seeds)
                 data = dict()
                 for seed in seeds:
-                    data[seed] = self._model.getGraph().nodes[seed]
+                    data[seed] = copy.deepcopy(self._model.getGraph().nodes[seed])
                     data[seed]["adopted_records"] = list()
                 set_node_attributes(model.getGraph(), data)
-                
+            
             model.diffusion(tagger)
-
+             
         tagger["TagRevenue"].avg(self.simulationTimes)
         tagger["TagActiveNode"].avg(self.simulationTimes)
 

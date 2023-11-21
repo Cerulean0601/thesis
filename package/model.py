@@ -142,7 +142,7 @@ class DiffusionModel():
             while not adoptionQueue.empty():
                 src, det = adoptionQueue.get()
                 node_id = det
-
+                
                 trade = self._user_proxy.adopt(node_id)
                 
                 # 如果沒購買任何東西則跳過此使用者不做後續的流程
