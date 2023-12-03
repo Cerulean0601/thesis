@@ -150,22 +150,24 @@ class TagAppending(TagImplement):
         return max(self.table[group], key=self.table[group].get)
 
 class TagRevenue(TagImplement):
-    def __init__(self, graph, seeds, max_expected=dict()):
+    def __init__(self, graph, seeds, max_expected_len=dict()):
         super().__init__()
         self._amount = 0
         self._expected_amount = 0
         self._seeds = seeds
         self._graph = graph
-        self._compile_graph, self._max_expected = SN_Graph.compile_max_product_graph(graph, self._seeds)
-
+        if not max_expected_len:
+            self._compile_graph, self.max_expected_len = SN_Graph.compile_max_product_graph(graph, self._seeds)
+        else:
+            self.max_expected_len = max_expected_len
     def tag(self, params, **kwargs):
         self.setParams(params, **kwargs)
         det = self._params["det"]
         # price multi maximum expected probability
-        self._expected_amount += self._params["amount"]*self._max_expected[det]
+        self._expected_amount += self._params["amount"]*self.max_expected_len[det]
         self._amount += self._params["amount"]
         if "max_expected" not in self._params:
-            self._params["max_expected"] = self._max_expected
+            self._params["max_expected"] = self.max_expected_len
         
         return self._params
 

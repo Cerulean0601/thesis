@@ -23,7 +23,7 @@ class Algorithm:
         self._itemset = model.getItemsetHandler()
         self._max_expected = dict()
         self._limitNum = k
-        self._max_expected_path = dict()
+        self._max_expected_len, self._max_expected_path = SN_Graph.max_product_path(self._graph, self._model.getSeeds())
         self.simulationTimes = simulationTimes
 
     def setLimitCoupon(self, k):
@@ -74,6 +74,18 @@ class Algorithm:
                 coupons.append(coupon)
         return coupons
 
+    def genFullItemCoupons(self, starThreshold:float, step:float, dicountPercentage:float) -> list:
+        if dicountPercentage <= 0 or dicountPercentage > 1:
+            raise ValueError("The discount percentage of coupon should be in (0,1]")
+        
+        coupons = []
+        sumItemPrices = sum(self._itemset.PRICE.values())
+        allItems = self._itemset[" ".join(self._itemset.PRICE.keys())]
+        for account in np.arange(starThreshold, sumItemPrices, step):
+            coupons.append(Coupon(account, allItems, account*dicountPercentage, allItems))
+        
+        return coupons
+                           
     def _getGroupNum(self, node):
         for seed, group in self._group.items():
             if node in group:
@@ -243,6 +255,8 @@ class Algorithm:
         tagger.setNext(TagRevenue(graph, self._model.getSeeds(), args[2]))
         tagger.setNext(TagActiveNode())
         tagger.setNext(TagDecidedMainItemset())
+        
+        bucket = dict()
 
         for time in range(self.simulationTimes):
             # initialize for Monte Carlo Simulation
@@ -257,7 +271,20 @@ class Algorithm:
                 set_node_attributes(model.getGraph(), data)
             
             model.diffusion(tagger)
-             
+
+            path = self._max_expected_path
+            for node, p in path.items():
+                src = p[0]
+                if src not in bucket:
+                    bucket[src] = dict()
+                
+                itemset = str(model._graph.nodes[node]["adopted_set"])
+                if itemset not in bucket[src]:
+                    bucket[src][itemset] = 1
+                else:
+                    bucket[src][itemset] += 1
+        self._bucket = bucket 
+
         tagger["TagRevenue"].avg(self.simulationTimes)
         tagger["TagActiveNode"].avg(self.simulationTimes)
 
@@ -271,9 +298,9 @@ class Algorithm:
         candidatedCoupons = candidatedCoupons[:]
 
         if len(candidatedCoupons) == 0:
-            return [], self._parallel((0,[],self._max_expected_path))
+            return [], self._parallel((0,[],self._max_expected_len))
         
-        coupons = [(i, [candidatedCoupons[i]], self._max_expected_path) for i in range(len(candidatedCoupons))]
+        coupons = [(i, [candidatedCoupons[i]], self._max_expected_len) for i in range(len(candidatedCoupons))]
         output = [] # the coupon set which is maximum revenue 
         revenue = 0
         tagger = None
@@ -308,7 +335,7 @@ class Algorithm:
                 revenue = maxMargin
                 tagger = result[maxIndex]
                 del candidatedCoupons[maxIndex]
-                coupons = [(i, coupons[maxIndex][1] + [candidatedCoupons[i]], self._max_expected_path) for i in range(len(candidatedCoupons))]
+                coupons = [(i, coupons[maxIndex][1] + [candidatedCoupons[i]], self._max_expected_len) for i in range(len(candidatedCoupons))]
                 
             else:
                 break
@@ -325,7 +352,7 @@ class Algorithm:
         i = 0
         for size in range(couponSize + 1): 
             for comb in combinations(candidatedCoupons, size):
-                couponsPowerset.append((i, list(comb), self._max_expected_path))
+                couponsPowerset.append((i, list(comb), self._max_expected_len))
                 i += 1
 
         result = pool.map(self._parallel, couponsPowerset)
@@ -386,7 +413,7 @@ class Algorithm:
                 new_solution = self._move(current_solution, candidatedCoupons)
 
             pool = Pool(cpu_count())
-            args = [("current", current_solution, self._max_expected_path), ("new", new_solution, self._max_expected_path)]
+            args = [("current", current_solution, self._max_expected_len), ("new", new_solution, self._max_expected_len)]
             result = pool.map(self._parallel, args)
             pool.close()
             pool.join()
