@@ -123,41 +123,40 @@ class TopicModel():
             for asin in items_id:
                 self._mappingItem[asin] = generate(self.number_topics)
         
-
-    def save(self, path = "D:\\論文實驗\\data\\topic\\"): # pragma: no cover
-        def saveToFile(filename, _mapping):
-            with open(filename, "w" ,encoding="utf8") as f:
-                output = ""
-                for numbering, topic in _mapping.items():
-                    output += "{0},{1}\n".format(numbering, " ".join([str(t) for t in topic]))
+    # def save(self, path = "D:\\論文實驗\\data\\topic\\"): # pragma: no cover
+    #     def saveToFile(filename, _mapping):
+    #         with open(filename, "w" ,encoding="utf8") as f:
+    #             output = ""
+    #             for numbering, topic in _mapping.items():
+    #                 output += "{0},{1}\n".format(numbering, " ".join([str(t) for t in topic]))
         
-                f.write(output)
+    #             f.write(output)
 
-        saveToFile(path + "topic" + str(self.number_topics) + "_items.csv", self._mappingItem)
-        saveToFile(path + "topic" + str(self.number_topics) + "_users.csv", self._mappingNode)
+    #     saveToFile(path + "topic" + str(self.number_topics) + "_items.csv", self._mappingItem)
+    #     saveToFile(path + "topic" + str(self.number_topics) + "_users.csv", self._mappingNode)
 
-    @staticmethod
-    def load(number_topics, path = "D:\\論文實驗\\data\\topic\\") ->dict: # pragma: no cover
-        '''
-            Reload the topic vetors that is the output of LDA model which had been trained.
-        '''
-        def loadFromFile(filename):
-            _mapping = dict()
+    # @staticmethod
+    # def load(number_topics, path = "D:\\論文實驗\\data\\topic\\") ->dict: # pragma: no cover
+    #     '''
+    #         Reload the topic vetors that is the output of LDA model which had been trained.
+    #     '''
+    #     def loadFromFile(filename):
+    #         _mapping = dict()
 
-            with open(filename, "r") as f:
-                for line in f:
-                    id, topic = line.split(",")
-                    if id in _mapping:
-                        raise ValueError("{0} of ids is duplicated.".format(id))
+    #         with open(filename, "r") as f:
+    #             for line in f:
+    #                 id, topic = line.split(",")
+    #                 if id in _mapping:
+    #                     raise ValueError("{0} of ids is duplicated.".format(id))
                     
-                    topic = topic.split(" ")
-                    _mapping[id] = [float(t) for t in topic]
+    #                 topic = topic.split(" ")
+    #                 _mapping[id] = [float(t) for t in topic]
         
-            return _mapping
+    #         return _mapping
 
-        return TopicModel(number_topics,  
-                loadFromFile(path + "topic" + str(number_topics) + "_users.csv"),
-                loadFromFile(path + "topic" + str(number_topics) + "_items.csv"))
+    #     return TopicModel(number_topics,  
+    #             loadFromFile(path + "topic" + str(number_topics) + "_users.csv"),
+    #             loadFromFile(path + "topic" + str(number_topics) + "_items.csv"))
         
 
 

@@ -242,8 +242,7 @@ class TagNonActive(TagImplement):
 class TagDecidedMainItemset(TagImplement):
     def __init__(self):
         super().__init__()
-        # the key of this dictionary is a string of the itemset, 
-        # and the value is a list that count the number of itemset is adopt by a user at the step.
+        
         self._record = dict()
 
     def tag(self, params, **kwargs):
@@ -251,16 +250,14 @@ class TagDecidedMainItemset(TagImplement):
             記錄隨著diffusion的疊代次數增加
         '''
         self.setParams(params, **kwargs)
-        step = self._params["step"]
         key = str(self._params["mainItemset"])
+        node_id = self._params["node_id"]
+        max_expected = self._params["max_expected"][node_id]
+
         if key not in self._record:
-            self._record[key] = list()
-            
-        while len(self._record[key])-1 < step:
-            self._record[key].append(0)
-
-        self._record[key][step] += 1
-
+            self._record[key] = max_expected
+        else:
+            self._record[key] += max_expected
         return self._params
     
     def items(self):

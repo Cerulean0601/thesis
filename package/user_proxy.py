@@ -40,6 +40,8 @@ class UsersProxy():
                 raise ValueError("If there are any coupons, the mainItemset should be set")
             return self._addtionallyAdoptVP(user_id, mainItemset, itemset, coupon)
   
+    def getVPsByUserId(self, user_id, coupon = None):
+        return {numbering: self._VP_ratio(user_id=user_id, itemset=obj, coupon=coupon) for numbering, obj in self._itemset}
     def _similarity(self, user_id, itemset):
 
         if not isinstance(itemset, Itemset):

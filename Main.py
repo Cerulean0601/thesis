@@ -81,7 +81,7 @@ def main():
     simluation_times = 2
     algo = Algorithm(model, 0, simluation_times)
     performanceFile = r"./result/greedy.txt"
-    candidatedCoupons = algo.genDiscountItemCoupons([0.8, 0.5])
+    candidatedCoupons = algo.genFullItemCoupons(5, 5, 0.9)
 
     for k in range(0,3):
                 

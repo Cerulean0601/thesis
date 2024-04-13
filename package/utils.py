@@ -75,3 +75,47 @@ def dot(a:list, b:list):
         raise ValueError("The length of two topics must match")
     
     return sum(i[0]*i[1] for i in zip(a, b))
+
+def exactly_one_probability(probabilities:list) -> float:
+    '''
+    恰好被一個節點影響成功的機率(已棄用)
+    '''
+    n = len(probabilities)
+    dp = [[0]*n for i in range(n)]
+
+    for i in range(n):
+        dp[i][i] = 1 - probabilities[i]
+        for j in range(0, i):
+            dp[j][i] = dp[j][i-1] * dp[i][i]
+
+    expected_value = probabilities[0] * dp[1][n-1]
+    for i in range(1, n-1):
+        expected_value += dp[0][i-1]*probabilities[i]*dp[i+1][n-1]
+        
+    expected_value += dp[0][n-2]*probabilities[n-1]
+
+    return expected_value
+
+def at_least_one_probability(probabilities: list) -> float:
+    pro = 1
+    for p in probabilities:
+        pro *= p
+
+    return 1-pro
+
+def expected_value(probabilities:list) -> float:
+    n = len(probabilities)
+    temp = [0] * (n + 1)
+    temp[0] = 1
+    prev = []
+    
+    for i in range(1, n + 1):
+        prev = temp[:]
+        for j in range(i + 1):
+            if j == 0:
+                temp[j] = prev[j] * (1 - probabilities[i - 1])
+            else:
+                temp[j] = prev[j] * (1 - probabilities[i - 1]) + prev[j-1] * probabilities[i - 1] 
+
+    expectation = sum(j * temp[j] for j in range(n + 1))
+    return expectation
