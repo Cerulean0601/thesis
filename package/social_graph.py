@@ -189,11 +189,11 @@ class SN_Graph(nx.DiGraph):
         if self.convertDirected():
             super().add_edge(det, src, **attr)
             self._initEdge(det, src, **attr)
-            self._update_in_edge(src)
+            # self._update_in_edge(src)
 
         super().add_edge(src, det, **attr)
         self._initEdge(src, det, **attr)
-        self._update_in_edge(det)
+        # self._update_in_edge(det)
 
     def add_edges_from(self, ebunch_to_add: zip|list, **attr):
         ebunch_to_add = list(ebunch_to_add)

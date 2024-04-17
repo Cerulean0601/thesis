@@ -5,14 +5,16 @@ from queue import SimpleQueue
 import sys
 from numpy import dot, sum
 from numpy.linalg import norm
+from collections.abc import Iterator
+import heapq
 class ClusterGraph(nx.DiGraph):
     def __init__(self, graph: SN_Graph, seeds:list[str], theta:float, depth:int, **attr):
         super().__init__()
         self._original_g = graph
-        self._seeds = seeds
+        self._seeds = [s for s in seeds]
         self._compile(theta, depth)
     def _compile(self, theta: float, depth: int):
-        seeds_attr = [(seed, self._original_g.nodes[seed]) for seed in self._seeds] 
+        seeds_attr = [(str(seed), self._original_g.nodes[seed]) for seed in self._seeds] 
         self.add_nodes_from(seeds_attr)
         current_level = SimpleQueue()
         next_level = SimpleQueue()
@@ -30,11 +32,12 @@ class ClusterGraph(nx.DiGraph):
                 for node in entity_nodes:
                     out_neighbors = out_neighbors.union(set(self._original_g.neighbors(node)))
 
+                out_neighbors = sorted(list(out_neighbors))
                 _cluster_neighbors = self._clustering(out_neighbors, theta)
                 for cluster in _cluster_neighbors:
                     topic = sum([self._original_g.nodes[n]["topic"] for n in cluster], axis=0)
                     topic = [t/len(cluster) for t in topic]
-                    node_name = ", ".join([str(n) for n in cluster])
+                    node_name = ", ".join(sorted([str(n) for n in cluster]))
 
                     if not self.has_node(node_name):
                         self.add_node(node_name, 
@@ -94,3 +97,19 @@ class ClusterGraph(nx.DiGraph):
             probabilities.append(weight)
 
         return expected_value(probabilities)
+    
+    def _level_travesal(self, depth) -> Iterator[set]:
+        seed_cluster =  set(self._seeds)
+        yield seed_cluster
+
+        level = set(s for s in seed_cluster)
+
+        d = 0
+        while len(level) > 0 and d < depth:
+            next_level = set()
+            for cluster in level:
+                next_level = next_level.union(set(self.neighbors(cluster)))
+            
+            level = next_level
+            d += 1
+            yield level

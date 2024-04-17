@@ -2,8 +2,11 @@ import sys
 from itertools import combinations
 import logging
 from multiprocessing.pool import ThreadPool
+from numpy import dot
+from collections.abc import Iterator
 
 from package.social_graph import SN_Graph
+from package.cluster_graph import ClusterGraph
 from package.itemset import ItemsetFlyweight, Itemset
 from package.coupon import Coupon
 
@@ -11,16 +14,13 @@ class UsersProxy():
     '''
       使用者的購買行為，包含挑選主商品、額外購買、影響成功後的行為
     '''
-    def __init__(self, graph: SN_Graph, itemset: ItemsetFlyweight, coupons, threshold = 0.0) -> None:
+    def __init__(self, graph: SN_Graph|ClusterGraph, itemset: ItemsetFlyweight, coupons, threshold = 0.0) -> None:
         self._graph = graph
         self._itemset = itemset
         self._coupons = coupons
         self._threshold = threshold
 
-    def setGraph(self, newGraph:SN_Graph):
-        if not isinstance(newGraph, SN_Graph):
-            raise TypeError("Replaced graph is not SN_Graph class.\n")
-        
+    def setGraph(self, newGraph:SN_Graph|ClusterGraph):
         self._graph = newGraph
     
     def getThreshold(self):
@@ -280,3 +280,17 @@ class UsersProxy():
             return trade
         else:
             return None
+    
+    def _min_discount(self, user_id, mainItemset, itemset) -> float:
+        return itemset.price - (1/self._VP_ratio(user_id, mainItemset)) * dot(itemset.topic, self._graph.nodes[user_id]["topic"])
+    def discoutableItems(self, user_id, mainItemset: Itemset) -> Iterator[Itemset]:
+        discoutable = []
+        itemsetHandler = self._itemset
+        node = self._graph.nodes[user_id]
+
+        for itemset in itemsetHandler:
+            if itemsetHandler.issuperset(itemset, mainItemset):
+                if dot(mainItemset.topic, node["topic"]) < dot(itemset.topic, node["topic"]) or \
+                self._VP_ratio(user_id, mainItemset) < self._VP_ratio(user_id, itemset):
+                    yield itemset
+

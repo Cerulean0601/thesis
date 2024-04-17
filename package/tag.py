@@ -5,6 +5,7 @@ import numpy as np
 
 from package.itemset import ItemsetFlyweight
 from package.social_graph import SN_Graph
+from package.cluster_graph import ClusterGraph
 
 class TagImplement:
     def __init__(self) -> None:
@@ -216,53 +217,68 @@ class TagActiveNode(TagImplement):
     def distribution(self): # pragma: no cover
         return self._distirbution
 
-class TagNonActive(TagImplement):
-    def __init__(self):
+class TagEstimatedRevenue(TagImplement):
+    def __init__(self) -> None:
         super().__init__()
-        self._amount = 0
-
-    def tag(self, params, **kwargs):
-        '''
-            記錄第一次購買的使用者在第一階段購買時，未購買成功的情況
-        '''
-        self.setParams(params, **kwargs)
-        node = self._params["node"]
+        self._revernue = 0
+    def tag(self, param, **kwargs):
+        self.setParams(param, **kwargs)
+        graph = self._params["graph"]
+        if not isinstance(graph, ClusterGraph):
+            raise TypeError("The type of graph is not ClusterGraph.")
         
-        if len(node["adopted_records"]) == 0:
-            self._amount += 1
+        src, det = self._params["src"], self._params["det"]
+        self._revernue += graph.edges[src, det]["weight"] * self._params["amount"]
 
-        return self._params
-    
     def amount(self):
-        return self._amount
-    
-    def avg(self, times):
-        self._amount = self._amount/times
+        return self._amount   
+# class TagNonActive(TagImplement):
+#     def __init__(self):
+#         super().__init__()
+#         self._amount = 0
 
-class TagDecidedMainItemset(TagImplement):
-    def __init__(self):
-        super().__init__()
+#     def tag(self, params, **kwargs):
+#         '''
+#             記錄第一次購買的使用者在第一階段購買時，未購買成功的情況
+#         '''
+#         self.setParams(params, **kwargs)
+#         node = self._params["node"]
         
-        self._record = dict()
+#         if len(node["adopted_records"]) == 0:
+#             self._amount += 1
 
-    def tag(self, params, **kwargs):
-        '''
-            記錄隨著diffusion的疊代次數增加
-        '''
-        self.setParams(params, **kwargs)
-        key = str(self._params["mainItemset"])
-        node_id = self._params["node_id"]
-        max_expected = self._params["max_expected"][node_id]
+#         return self._params
+    
+#     def amount(self):
+#         return self._amount
+    
+#     def avg(self, times):
+#         self._amount = self._amount/times
 
-        if key not in self._record:
-            self._record[key] = max_expected
-        else:
-            self._record[key] += max_expected
-        return self._params
+# class TagDecidedMainItemset(TagImplement):
+#     def __init__(self):
+#         super().__init__()
+        
+#         self._record = dict()
+
+#     def tag(self, params, **kwargs):
+#         '''
+#             記錄隨著diffusion的疊代次數增加
+#         '''
+#         self.setParams(params, **kwargs)
+#         key = str(self._params["mainItemset"])
+#         node_id = self._params["node_id"]
+#         max_expected = self._params["max_expected"][node_id]
+
+#         if key not in self._record:
+#             self._record[key] = max_expected
+#         else:
+#             self._record[key] += max_expected
+#         return self._params
     
-    def items(self):
-        return self._record.items()
+#     def items(self):
+#         return self._record.items()
     
-    def avg(self, times):
-        for key in self._record.keys():
-            self._record[key] = [n/times for n in self._record[key]]
+#     def avg(self, times):
+#         for key in self._record.keys():
+#             self._record[key] = [n/times for n in self._record[key]]

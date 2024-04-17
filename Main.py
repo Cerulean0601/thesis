@@ -114,16 +114,16 @@ def main():
 if __name__ == '__main__':    
     
     test()
-    NOTIFY = False
+    # NOTIFY = False
 
-    if NOTIFY:
-        notify = Notify(endpoint=NOTIFY_ENDPOINT)
-        try:
-            main()    
-        except Exception as e:
-            notify.send("Error: {0}".format(str(e)))
+    # if NOTIFY:
+    #     notify = Notify(endpoint=NOTIFY_ENDPOINT)
+    #     try:
+    #         main()    
+    #     except Exception as e:
+    #         notify.send("Error: {0}".format(str(e)))
     
     
-        notify.send("Done")
-    else:
-        main()
+    #     notify.send("Done")
+    # else:
+    #     main()

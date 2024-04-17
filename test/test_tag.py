@@ -3,7 +3,7 @@ from package.itemset import ItemsetFlyweight, Itemset
 from package.social_graph import SN_Graph 
 from package.coupon import Coupon
 from package.user_proxy import UsersProxy
-from package.tag import Tagger, TagNonActive
+from package.tag import Tagger
 
 class TestUserProxy(unittest.TestCase):
     def __init__(self, *args, **kwargs):

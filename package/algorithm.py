@@ -13,16 +13,20 @@ from package.tag import *
 from package.itemset import Itemset
 from package.model import DiffusionModel
 from package.social_graph import SN_Graph
+from package.cluster_graph import ClusterGraph
 from package.coupon import Coupon
 from package.utils import dot
+from package.user_proxy import UsersProxy
 
 class Algorithm:
-    def __init__(self, model, k, simulationTimes=1):
+    def __init__(self, model, k, depth, cluster_theta=0.9, simulationTimes=1):
         self._model = model
         self._graph = model.getGraph()
         self._itemset = model.getItemsetHandler()
         self._max_expected = dict()
         self._limitNum = k
+        self._depth = depth
+        self._cluster_theta = cluster_theta
         self._max_expected_len, self._max_expected_path = SN_Graph.max_product_path(self._graph, self._model.getSeeds())
         self.simulationTimes = simulationTimes
 
@@ -85,164 +89,67 @@ class Algorithm:
             coupons.append(Coupon(account, allItems, account*dicountPercentage, allItems))
         
         return coupons
-                           
-    def _getGroupNum(self, node):
-        for seed, group in self._group.items():
-            if node in group:
-                return seed
-        
-        raise ValueError("The node does not exist.")
-    
-    def _preprocessing(self):
-        self.calculateMaxExpProbability()
-        self._max_expected_subgraph.initAttr()
-        sub_model = copy.deepcopy(self._model)
-        sub_model.setGraph(self._max_expected_subgraph)
 
-        seeds = list(sub_model.getSeeds())
-        self._group = dict() # {seed_1: {u_1, u_2,...,}}
+    def _locally_estimate(self, clusters:list, post_cluster:list, coupon:Coupon) -> float:
+        user_proxy = self._model.getUserProxy()
+        coupons = user_proxy.getCoupons()
 
-        for seed in seeds:
-            self._group[seed] = set(sub_model.getGraph().sampling_subgraph(roots=[seed]).nodes)
-        # for component in nx.weakly_connected_components(self._max_expected_subgraph):
-        #     for seed in seeds:
-        #         if seed in component:
-        #             self._group[seed] = component
-        #             del seed
+        if not isinstance(user_proxy._graph, ClusterGraph) and type(self._model.getGraph()) != type(user_proxy._graph):
+            raise TypeError("The type of graph should be ClusterGraph.")
 
-        tagger = Tagger()
-        tagger.setNext(TagMainItemset())
-        tagger.setNext(TagAppending(sub_model.getItemsetHandler()))
-        tagger.setParams(group=self._group, max_expected=self._max_expected)
+        graph = user_proxy._graph
+        user_proxy.setCoupons(coupons + [coupon])
+        revenue = 0
+        predecessor_adopt = dict()
 
-        sub_model.diffusion(tagger)
-
-        return tagger
-    
-    def _getAccItemset(self, mainItemset, appending):
-        
-        if not appending:
-            yield mainItemset
-            return
-        
-        # sort powerset by price in descending order
-        powerset = sorted([ obj for asin, obj in self._itemset.powerSet(appending)], 
-                            key=lambda X: X.price)
-        for unionMainItemset in powerset:
-            yield self._itemset.union(unionMainItemset, mainItemset)
-
-    def _getAccThreshold(self, mainItemset, accItemset):
-        
-        staringPrice = mainItemset.price
-        
-        diff = self._itemset.difference(accItemset, mainItemset)
-        if not diff:
-            yield staringPrice
-        else:
-            candidate = self._itemset.powerSet(diff)
-            sortedCandidate = self._itemset.sortByPrice([obj for id, obj in candidate])
-            for candidate in sortedCandidate:
-                yield staringPrice + candidate.price
-
-    def _sumGroupExpTopic(self, groupingNodes):
-        topic_size = len(self._graph.nodes[next(iter(groupingNodes))]["topic"])
-
-        expectedTopic = [0]*topic_size
-        normExpected = sum([self._max_expected[node] for node in groupingNodes])
-
-        for node in groupingNodes:
-            for t in range(topic_size):
-                expectedTopic[t] += self._graph.nodes[node]["topic"][t]*(self._max_expected[node]/normExpected)
-        
-        return expectedTopic
-        # topic = []
-        # for t in zippedTopic:
-        #     print(t)
-        # return topic
-    
-    
-    def _getDisItemset(self, expctedTopic, mainItemset, appending):
-        
-        threhold = dot(expctedTopic, mainItemset.topic)/mainItemset.price
-
-        candidatedList = []
-        for ids, obj in self._itemset.powerSet(appending):
-            if threhold >= (dot(expctedTopic, obj.topic)/obj.price):
-                candidatedList.append(obj)
-        
-        for obj in self._itemset.sortByPrice(candidatedList, reverse=True):
-            yield obj
+        for cluster in clusters:
+            adopted_result = user_proxy.adopt(cluster)
+            predecessor_adopt[cluster] = adopted_result["items"]
+            revenue += adopted_result["amount"] - adopted_result["mainItemset"].price
             
+        for cluster in post_cluster:
+            u,v,w = min(graph.in_edges(nbunch=cluster, data="weight"), key=lambda x: x[2])
+            self._model._propagate(u, v, predecessor_adopt[u])
+            mainItemset = user_proxy._adoptMainItemset(v)["items"]
+            revenue += w*mainItemset.price
+        
+        return revenue
+    
+    def _globally_estimate(self, coupon:Coupon) -> float:
+        graph = self._model.getGraph()
+        if not isinstance(graph, ClusterGraph):
+            raise TypeError("The type of graph should be ClusterGraph.")
+        
+        nx.set_edge_attributes(graph, True, "is_active")
+        coupons = self._model.getCoupons()
+        self._model.setCoupons(coupons + [coupon])
+        tagger = TagEstimatedRevenue(graph=graph)
+        self._model.diffusion(tagger)
 
-    def _getMinDiscount(self, expctedTopic:list, mainItemset:Itemset, accItemset:Itemset, accThreshold, disItemset:Itemset):
-
-        tradeItemset = self._itemset.union(mainItemset, disItemset)
-
-        accAmount = self._itemset.intersection(mainItemset, self._itemset[accItemset]) # 已累積的金額
-        accAmount = accAmount.price if accAmount != None else 0
-        mainProportion = min(mainItemset.price/accThreshold,1)
-
-        term = dot(expctedTopic, tradeItemset.topic)*mainProportion
-        term *= dot(expctedTopic, mainItemset.topic)/mainItemset.price
-        term = tradeItemset.price - term
-
-        if term > disItemset.price:
-            logging.warn("The minimum discount is larger than the total account of discountable itmeset")
-            return disItemset.price
-        return term
-
+        return tagger.amount()
     def genSelfCoupons(self):
-        
-        # select seeds if the set is empty
-        seeds = self._model.getSeeds()
-        if not seeds:
-            k = min(self._model._itemset.size, self._model._graph.number_of_nodes())
-
-            # list of the seeds is sorted by out-degree.
-            self._model.selectSeeds(k)
-            seeds = self._model.getSeeds()
-
-        if self._model._graph.nodes[seeds[0]]["desired_set"] == None:
-            # List of single items.
-            items = [self._model._itemset[id] for id in list(self._model._itemset.PRICE.keys())]
-
-            self._model.allocate(seeds, items)
-        
-        tagger = self._preprocessing()
-        mainItemset = tagger["TagMainItemset"]
-        appending = tagger["TagAppending"]
-        
-
-        # result = []
-        # for seed in seeds:
-        #     result.append(self._sumGroupExpTopic(seed))
-
-        pool = Pool(cpu_count())
-        result = pool.map(self._sumGroupExpTopic, [nodes for nodes in self._group.values()])
-        pool.close()
-        pool.join()
-
-        groupExpTopic = dict()
-
-        for i in range(len(seeds)):
-            groupExpTopic[seeds[i]] = result[i]
-
+        cluster_graph = ClusterGraph(self._graph, 
+                                           self._model.getSeeds())
+        user_proxy = self._model.getUserProxy()
+        user_proxy.setGraph(cluster_graph)
         coupons = []
-        for group in self._model.getSeeds():
-            maxExceptMainID = mainItemset.maxExcepted(group)
-            maxAppendingID = appending.maxExcepted(group)
-            if not maxAppendingID or not maxExceptMainID:
-                raise ValueError("The main itemset or appendings of group {0} is empty".format(group))
 
-            maxExceptMain = self._itemset[maxExceptMainID]
-            maxExceptAppending = self._itemset[maxAppendingID]
-
-            for accItemset in self._getAccItemset(maxExceptMain, maxExceptAppending):
-                for accThreshold in self._getAccThreshold(maxExceptMain, accItemset):
-                    for disItemset in self._getDisItemset(groupExpTopic[group], maxExceptMain, maxExceptAppending):
-                        discount = self._getMinDiscount(groupExpTopic[group], maxExceptMain, accItemset, accThreshold, disItemset)
-                        coupons.append(Coupon(accThreshold, accItemset, discount, disItemset))
-        
+        for level_clusters in self._cluster_graph._level_travesal(self._depth):
+            max_benfit = 0
+            max_margin_coupon = None
+            for cluster in level_clusters:
+                accItemset = user_proxy._adoptMainItemset(cluster)["items"]
+                for disItemset in user_proxy.discoutableItems(cluster, accItemset):
+                    discount = user_proxy._min_discount(cluster, accItemset, disItemset)
+                    coupon = Coupon(accItemset.price, accItemset, discount, disItemset)
+                    '''
+                    margin_benfit = locally_estimate(coupons)
+                    if margin_benfit > max_benfit:
+                        max_benfit = margin_benfit
+                        max_margin_coupon = coupon
+                    coupons.pop()
+                    '''
+        user_proxy.setGraph(self._graph)
         return coupons
     
     def _parallel(self, args):
