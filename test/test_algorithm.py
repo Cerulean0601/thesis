@@ -100,7 +100,7 @@ class TestAlgorithm(unittest.TestCase):
                         accItemset=self._itemset["Galaxy"], 
                         discount=min_discount,
                         disItemset=self._itemset["iPhone"])
-        print(self._algo._globally_estimate(coupon))
+        self.assertAlmostEqual(self._algo._globally_estimate(coupon), 4937.083333333334)
 
     @unittest.skip("The execution time is too expensive")
     def test_greedy(self):

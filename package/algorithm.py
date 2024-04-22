@@ -1,22 +1,19 @@
 
 from networkx import set_node_attributes
-import logging
 import numpy as np
 from multiprocessing import Pool
 import copy 
 from itertools import combinations
 from os import cpu_count
 import random, math
-import threading
+import time
 
 from package.tag import *
-from package.itemset import Itemset
 from package.model import DiffusionModel
 from package.social_graph import SN_Graph
 from package.cluster_graph import ClusterGraph
 from package.coupon import Coupon
 from package.utils import dot
-from package.user_proxy import UsersProxy
 
 class Algorithm:
     def __init__(self, model, k, depth, cluster_theta=0.9, simulationTimes=1):
@@ -129,27 +126,44 @@ class Algorithm:
 
         return tagger["TagEstimatedRevenue"].amount()
     def genSelfCoupons(self):
+        print("Clustering the graph...")
+        start = time.time()
         cluster_graph = ClusterGraph(graph = self._graph, 
-                                    seeds = self._model.getSeeds())
+                                    seeds = self._model.getSeeds(),
+                                    depth = self._depth,
+                                    theta = self._cluster_theta)
+        print("Execution time for clustering graph: {}".format(time.time() - start))
+
         user_proxy = self._model.getUserProxy()
         user_proxy.setGraph(cluster_graph)
-        coupons = []
+        coupons = self._model.getCoupons()
 
-        for level_clusters in self._cluster_graph._level_travesal(self._depth):
-            max_benfit = 0
-            max_margin_coupon = None
-            for cluster in level_clusters:
+        level_clusters = list(self._cluster_graph._level_travesal(self._depth))
+        leaf_level = len(level_clusters)-1
+        global_benfit = 0
+        for i in range(len(level_clusters)):
+            print("Level: {}".format(i))
+            max_local_benfit = 0
+            max_local_margin_coupon = None
+            for cluster in level_clusters[i]:
                 accItemset = user_proxy._adoptMainItemset(cluster)["items"]
                 for disItemset in user_proxy.discoutableItems(cluster, accItemset):
                     discount = user_proxy._min_discount(cluster, accItemset, disItemset)
                     coupon = Coupon(accItemset.price, accItemset, discount, disItemset)
-                    '''
-                    margin_benfit = locally_estimate(coupons)
-                    if margin_benfit > max_benfit:
-                        max_benfit = margin_benfit
-                        max_margin_coupon = coupon
-                    coupons.pop()
-                    '''
+                    
+                    start = time.time()
+                    margin_benfit = self._locally_estimate(level_clusters[i], level_clusters[min(i+1, leaf_level)], coupon)
+                    print("Local estimation for level: {}, {}".format(i, time.time()-start))
+                    if margin_benfit > max_local_benfit:
+                        max_local_benfit = margin_benfit
+                        max_local_margin_coupon = coupon
+            start = time.time()
+            global_margin_benfit = self._globally_estimate(max_local_margin_coupon)
+            print("Global estimation for level: {}, {}".format(i, time.time()-start))
+            if global_margin_benfit > global_benfit:
+                global_benfit = global_margin_benfit
+                coupons.append(coupon)
+                
         user_proxy.setGraph(self._graph)
         return coupons
     

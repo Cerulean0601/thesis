@@ -19,6 +19,7 @@ def test():
 
 import pandas as pd
 
+from package.tag import Tagger, TagRevenue, TagActiveNode
 from package.model import DiffusionModel
 from package.topic import TopicModel
 from package.social_graph import SN_Graph
@@ -78,52 +79,56 @@ def main():
     seeds = model.selectSeeds(seed_size)
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
     
-    simluation_times = 2
-    algo = Algorithm(model, 0, simluation_times)
-    performanceFile = r"./result/greedy.txt"
-    candidatedCoupons = algo.genFullItemCoupons(5, 5, 0.9)
-
-    for k in range(0,3):
+    # simluation_times = 2
+    algo = Algorithm(model, 20, depth=5)
+    performanceFile = r"./result/Self.txt"
                 
-        algo.setLimitCoupon(k)
-        start_time = time()
+    start_time = time()
+    
+    coupons = algo.genSelfCoupons()
+
+    # if k == 0:
+    #     outputCoupons, tagger = algo.simulation([])
+    # else:
+    #     outputCoupons, tagger = algo.simulation(candidatedCoupons)
+
+    end_time = time()
+
+    model.setCoupons(coupons)
+    tagger = Tagger()
+    tagger.setNext(TagRevenue(graph, model.getSeeds(), algo._max_expected_len))
+    tagger.setNext(TagActiveNode())
+    model.diffusion(tagger)
+
+    with open(performanceFile, "a") as record:
         
-        if k == 0:
-            outputCoupons, tagger = algo.simulation([])
-        else:
-            outputCoupons, tagger = algo.simulation(candidatedCoupons)
-
-        end_time = time()
-
-        # with open(performanceFile, "a") as record:
-            
-        #     record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},k={6}\n".format(
-        #         ctime(end_time),
-        #         (end_time - start_time),
-        #         tagger["TagRevenue"].amount(),
-        #         tagger["TagRevenue"].expected_amount(),
-        #         tagger["TagActiveNode"].amount(),
-        #         tagger["TagActiveNode"].expected_amount(),
-        #         k,
-        #         ))
-            
-        #     for c in outputCoupons:
-        #         record.write(str(c) + "\n")
-        #     record.write("\n")
+        record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},k={6}\n".format(
+            ctime(end_time),
+            (end_time - start_time),
+            tagger["TagRevenue"].amount(),
+            tagger["TagRevenue"].expected_amount(),
+            tagger["TagActiveNode"].amount(),
+            tagger["TagActiveNode"].expected_amount(),
+            k,
+            ))
+        
+        for c in coupons:
+            record.write(str(c) + "\n")
+        record.write("\n")
 
 if __name__ == '__main__':    
     
     test()
-    # NOTIFY = False
+    NOTIFY = True
 
-    # if NOTIFY:
-    #     notify = Notify(endpoint=NOTIFY_ENDPOINT)
-    #     try:
-    #         main()    
-    #     except Exception as e:
-    #         notify.send("Error: {0}".format(str(e)))
+    if NOTIFY:
+        notify = Notify(endpoint=NOTIFY_ENDPOINT)
+        try:
+            main()    
+        except Exception as e:
+            notify.send("Error: {0}".format(str(e)))
     
     
-    #     notify.send("Done")
-    # else:
-    #     main()
+        notify.send("Done")
+    else:
+        main()
