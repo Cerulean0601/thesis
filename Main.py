@@ -73,7 +73,7 @@ def main():
     relation.construct(AMAZON_PATH + "/sample_items.csv")
     itemset = ItemsetFlyweight(getItemsPrice(AMAZON_PATH + "/sample_items.csv"), topicModel, relation)
 
-    model = DiffusionModel("amazon in dblp", graph, itemset, threshold=10**(-5))
+    model = DiffusionModel( graph, itemset, threshold=10**(-5), name="amazon in dblp")
     seed_size = min(itemset.size, graph.number_of_nodes())
     seeds = model.selectSeeds(seed_size)
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])

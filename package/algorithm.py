@@ -27,7 +27,8 @@ class Algorithm:
         self._limitNum = k
         self._depth = depth
         self._cluster_theta = cluster_theta
-        self._max_expected_len, self._max_expected_path = SN_Graph.max_product_path(self._graph, self._model.getSeeds())
+        if type(self._graph) == SN_Graph:
+            self._max_expected_len, self._max_expected_path = SN_Graph.max_product_path(self._graph, self._model.getSeeds())
         self.simulationTimes = simulationTimes
 
     def setLimitCoupon(self, k):
@@ -47,10 +48,10 @@ class Algorithm:
         '''
         coupons = []
         
-        for accNumbering, accItemset in self._itemset:
+        for accItemset in self._itemset:
             min_amount = min([self._itemset[numbering].price for numbering in accItemset.numbering])
             for threshold in np.arange(min_amount, accItemset.price + price_step - 1, price_step):
-                for disNumbering, disItemset in self._itemset:
+                for disItemset in self._itemset:
                     for discount in np.arange(5 ,disItemset.price, price_step):
                         coupons.append(Coupon(threshold, accItemset, discount, disItemset))
     
@@ -104,7 +105,7 @@ class Algorithm:
 
         for cluster in clusters:
             adopted_result = user_proxy.adopt(cluster)
-            predecessor_adopt[cluster] = adopted_result["items"]
+            predecessor_adopt[cluster] = adopted_result["decision_items"]
             revenue += adopted_result["amount"] - adopted_result["mainItemset"].price
             
         for cluster in post_cluster:
@@ -120,16 +121,16 @@ class Algorithm:
         if not isinstance(graph, ClusterGraph):
             raise TypeError("The type of graph should be ClusterGraph.")
         
-        nx.set_edge_attributes(graph, True, "is_active")
         coupons = self._model.getCoupons()
         self._model.setCoupons(coupons + [coupon])
-        tagger = TagEstimatedRevenue(graph=graph)
-        self._model.diffusion(tagger)
+        tagger = Tagger()
+        tagger.setNext(TagEstimatedRevenue(graph=graph))
+        self._model.DeterministicDiffusion(self._depth, tagger)
 
-        return tagger.amount()
+        return tagger["TagEstimatedRevenue"].amount()
     def genSelfCoupons(self):
-        cluster_graph = ClusterGraph(self._graph, 
-                                           self._model.getSeeds())
+        cluster_graph = ClusterGraph(graph = self._graph, 
+                                    seeds = self._model.getSeeds())
         user_proxy = self._model.getUserProxy()
         user_proxy.setGraph(cluster_graph)
         coupons = []
@@ -156,12 +157,11 @@ class Algorithm:
         coupon = args[1]
         graph = copy.deepcopy(self._model.getGraph())
     
-        model = DiffusionModel("", graph, self._model.getItemsetHandler(), coupon, self._model.getThreshold())
+        model = DiffusionModel(graph, self._model.getItemsetHandler(), coupon, self._model.getThreshold())
     
         tagger = Tagger()
         tagger.setNext(TagRevenue(graph, self._model.getSeeds(), args[2]))
         tagger.setNext(TagActiveNode())
-        tagger.setNext(TagDecidedMainItemset())
         
         bucket = dict()
 

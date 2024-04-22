@@ -179,45 +179,12 @@ class SN_Graph(nx.DiGraph):
     def convertDirected(self):
         return self.located
 
-    def add_edge(self, src, det, **attr):
-        if src not in self.nodes:
-            self.add_node(src)
-        
-        if det not in self.nodes:
-            self.add_node(det)
-        
-        if self.convertDirected():
-            super().add_edge(det, src, **attr)
-            self._initEdge(det, src, **attr)
-            # self._update_in_edge(src)
-
-        super().add_edge(src, det, **attr)
-        self._initEdge(src, det, **attr)
-        # self._update_in_edge(det)
-
-    def add_edges_from(self, ebunch_to_add: zip|list, **attr):
-        ebunch_to_add = list(ebunch_to_add)
-        super().add_edges_from(ebunch_to_add, weight=0, is_tested=False, **attr)
-        for edge in ebunch_to_add:
-            src = edge[0]
-            det = edge[1]
-            self.add_node(src)
-            self.add_node(det)
-            if self.convertDirected():
-                self._update_in_edge(src)
-            
-            self._update_in_edge(det)
-
     def add_node(self, node_for_adding, **attr):
         super().add_node(node_for_adding, **attr)
         self._initNode(node_for_adding, **attr)
 
     def _weightingEdge(self, node):
         return 1/self.in_degree(node)
-    
-    def _update_in_edge(self, node):
-        for src, det in self.in_edges(node):
-            self.edges[src, det]["weight"] = self._weightingEdge(det)
 
     def _initEdge(self, src, det, **attr):
         self.edges[src, det]["weight"] = self._weightingEdge(det)

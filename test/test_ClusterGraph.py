@@ -46,7 +46,7 @@ class TestClusterGraph(unittest.TestCase):
         
         topic = TopicModel(3, itemsTopic=TOPICS["Item"], nodesTopic=TOPICS["Node"])
         H = SN_Graph.transform(G, topic.getNodesTopic())
-        self.cluster_graph = ClusterGraph(graph=H, seeds=["1"], theta=0.9, depth=6)
+        self.cluster_graph = ClusterGraph(graph=H, seeds=["1"], theta=0.9, depth=6, located=False)
 
         return super().setUp()
 
@@ -94,6 +94,3 @@ class TestClusterGraph(unittest.TestCase):
         
         self.assertEqual(len(ans), 0)
 
-
-    def test__level_travesal(self):
-        depth = 5

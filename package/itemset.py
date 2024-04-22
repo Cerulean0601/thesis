@@ -181,8 +181,8 @@ class ItemsetFlyweight():
     def __iter__(self):
         numbering_of_items = list(self.PRICE.keys())
 
-        for numbering, obj in self.powerSet(numbering_of_items):
-            yield numbering, obj
+        for obj in self.powerSet(numbering_of_items):
+            yield obj
 
     def getSingleItems(self) -> list[Itemset]:
         return [obj for ids, obj in self.__iter__() if len(obj) == 1]
@@ -276,7 +276,7 @@ class ItemsetFlyweight():
         for size_itemset in range(len(items)):
             for combination in combinations(ItemsetFlyweight._toSet(items), size_itemset + 1):
                 itemset = self.__getitem__(combination)
-                yield str(itemset), itemset
+                yield itemset
         
     def maxTopicValue(self, userTopic):
         

@@ -1,18 +1,28 @@
-import networkx as nx
 from package.social_graph import SN_Graph
 from package.utils import at_least_one_probability, expected_value
+from package.social_graph import SN_Graph
+from package.topic import TopicModel
+
+import networkx as nx
 from queue import SimpleQueue
 import sys
 from numpy import dot, sum
 from numpy.linalg import norm
 from collections.abc import Iterator
 import heapq
-class ClusterGraph(nx.DiGraph):
-    def __init__(self, graph: SN_Graph, seeds:list[str], theta:float, depth:int, **attr):
-        super().__init__()
-        self._original_g = graph
-        self._seeds = [s for s in seeds]
-        self._compile(theta, depth)
+class ClusterGraph(SN_Graph):
+    def __init__(self, cluster_topic:TopicModel|dict = None, located = True, **attr):
+        '''
+          Other Args:
+            graph: (SN_Graph)
+            seeds: (list[str])
+            theta: (float)
+            depth: (int)
+        '''
+        super().__init__(node_topic=cluster_topic, located=located)
+        if "graph" in attr:
+            self._original_g, self._seeds = attr["graph"], attr["seeds"]
+            self._compile(attr["theta"], attr["depth"])
     def _compile(self, theta: float, depth: int):
         seeds_attr = [(str(seed), self._original_g.nodes[seed]) for seed in self._seeds] 
         self.add_nodes_from(seeds_attr)
@@ -98,8 +108,8 @@ class ClusterGraph(nx.DiGraph):
 
         return expected_value(probabilities)
     
-    def _level_travesal(self, depth) -> Iterator[set]:
-        seed_cluster =  set(self._seeds)
+    def _level_travesal(self, sources, depth) -> Iterator[set]:
+        seed_cluster =  set(sources)
         yield seed_cluster
 
         level = set(s for s in seed_cluster)
@@ -113,3 +123,6 @@ class ClusterGraph(nx.DiGraph):
             level = next_level
             d += 1
             yield level
+
+    def add_weighted_edges_from(self, ebunch_to_add, weight="weight", **attr):
+        return super().add_weighted_edges_from(ebunch_to_add, weight, **attr)

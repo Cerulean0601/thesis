@@ -13,11 +13,12 @@ from package.user_proxy import UsersProxy
 from package.itemset import ItemsetFlyweight, Itemset
 from package.coupon import Coupon
 from package.social_graph import SN_Graph
+from package.cluster_graph import ClusterGraph
 from package.topic import TopicModel
 #from tag import Tagger, TagMainItemset, TagAppending
 
 class DiffusionModel():
-    def __init__(self, name, graph:SN_Graph, itemset, coupons=[], threshold = 0.0) -> None:
+    def __init__(self, graph:SN_Graph|ClusterGraph, itemset, coupons=[], threshold = 0.0, name=None) -> None:
         self._graph = graph
         self.name = name
 
@@ -172,8 +173,7 @@ class DiffusionModel():
                 if tagger != None:
                     tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id], step=step)
 
-                logging.info("user {0} traded {1}".format(node_id, trade["tradeOff_items"]))
-                propagatedQueue.put((node_id, trade["tradeOff_items"]))
+                propagatedQueue.put((node_id, trade["decision_items"]))
                 adoptionQueue.task_done()
 
             step += 1
@@ -186,7 +186,78 @@ class DiffusionModel():
                         logging.debug("{0}'s desired_set: {1}".format(det, self._graph.nodes[det]["desired_set"]))
                         adoptionQueue.put((node_id, out_neighbor))
                 propagatedQueue.task_done()
+    
+    def DeterministicDiffusion(self, depth:int, tagger=None):
 
+        if not self._seeds:
+            k = min(self._itemset.size, self._graph.number_of_nodes())
+
+            # list of the seeds is sorted by out-degree.
+            self.selectSeeds(k)
+        
+        if self._graph.nodes[self._seeds[0]]["desired_set"] == None:
+            # List of single items.
+            items = [self._itemset[id] for id in list(self._itemset.PRICE.keys())]
+
+            self.allocate(self._seeds, items)
+
+        # push the node who will adopt items at this step
+        adoptionQueue = Queue()
+        for seed in self._seeds:
+            adoptionQueue.put((None, seed))
+        
+        # push the node who have adopted items at this step
+        propagatedQueue = Queue()
+
+        # Loop until no one adopted items at the previous step
+        step = 0
+        while not adoptionQueue.empty() and step < depth:
+            
+            # Loop until everyone check to decide whether adopt items
+            while not adoptionQueue.empty():
+                src, det = adoptionQueue.get()
+                node_id = det
+                
+                trade = self._user_proxy.adopt(node_id)
+                
+                # 如果沒購買任何東西則跳過此使用者不做後續的流程
+                if trade == None:
+                    if "TagNonActive" in tagger:
+                        tagger["TagNonActive"].tag(node=self._graph.nodes[node_id])
+                    continue
+
+                '''
+                    taggerParam = {
+                        mainItemset: 主商品組合
+                        seed: 節點屬於哪個種子群 (Algorithm) 
+                        expectedProbability: 影響期望值
+                        coupon: 該節點使用哪個優惠方案
+                        node: 節點
+                    }
+                '''
+
+                trade["src"] = src
+                trade["det"] = node_id
+                
+                if tagger != None:
+                     tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id], step=step)
+
+                propagatedQueue.put((node_id, trade["decision_items"]))
+                adoptionQueue.task_done()
+
+            step += 1
+            while not propagatedQueue.empty():
+                node_id, decision_items = propagatedQueue.get()
+                for out_neighbor in self._graph.neighbors(node_id):
+                    is_activated  = self._propagate(node_id, out_neighbor, decision_items)
+
+                    self._graph.edges[node_id, out_neighbor]["is_tested"] = False
+                    if self._graph.convertDirected():
+                        self._graph.edges[det, src]["is_tested"] = False
+
+                    if is_activated:
+                        adoptionQueue.put((node_id, out_neighbor))
+                propagatedQueue.task_done()
     # def save(self, dir_path):
 
     #     filename = dir_path + self.name

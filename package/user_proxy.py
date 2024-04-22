@@ -32,7 +32,7 @@ class UsersProxy():
     def getCoupons(self) -> list[Coupon]:
         return self._coupons
     
-    def _VP_ratio(self, user_id, itemset, mainItemset = None, coupon = None):
+    def _VP_ratio(self, user_id, itemset:str, mainItemset = None, coupon = None):
         if coupon == None:
             return self._mainItemsetVP(user_id, itemset)
         else:
@@ -41,7 +41,11 @@ class UsersProxy():
             return self._addtionallyAdoptVP(user_id, mainItemset, itemset, coupon)
   
     def getVPsByUserId(self, user_id, coupon = None):
-        return {numbering: self._VP_ratio(user_id=user_id, itemset=obj, coupon=coupon) for numbering, obj in self._itemset}
+        mainItemset = None
+        if coupon:
+            mainItemset = self._adoptMainItemset(user_id)["items"]
+        return {str(obj): self._VP_ratio(user_id=user_id, itemset=obj, mainItemset=mainItemset, coupon=coupon) for obj in self._itemset}
+    
     def _similarity(self, user_id, itemset):
 
         if not isinstance(itemset, Itemset):
@@ -56,7 +60,7 @@ class UsersProxy():
 
         return sim
 
-    def _mainItemsetVP(self, user_id, itemset):
+    def _mainItemsetVP(self, user_id, itemset:str):
     
         '''
             挑選主商品時的計算公式
@@ -125,14 +129,17 @@ class UsersProxy():
         
         return {"items": self._itemset[maxVP_mainItemset], "VP": max_VP} if maxVP_mainItemset != None else None
 
-    def _addtionallyAdoptVP(self, user_id, mainItemset, itemset, coupon):
+    def _addtionallyAdoptVP(self, user_id:str, mainItemset:str|Itemset, itemset:str|Itemset, coupon):
         '''
             計算額外購買的VP值
             Args:
                 user_id(str): node id
-                mainItemset(Itemset): Main itemset of the node
+                mainItemset(Itemset,str): Main itemset of the node
                 addtionalItemset(Itemset): 使用者在第二階段考量的商品組合
         '''
+        mainItemset = self._itemset[mainItemset]
+        itemset = self._itemset[itemset]
+        
         mainItemset = self._itemset.difference(mainItemset, self._graph.nodes[user_id]["adopted_set"])
         accAmount = self._itemset.intersection(mainItemset, self._itemset[coupon.accItemset]) # 已累積的金額
         accAmount = 0 if accAmount == None else accAmount.price
@@ -181,7 +188,7 @@ class UsersProxy():
 
         pool = ThreadPool()
         params = []
-        for numbering, itemsetObj in self._itemset:
+        for itemsetObj in self._itemset:
             for coupon in self._coupons:
                 params.append([mainItemset, itemsetObj, coupon])
             
@@ -282,7 +289,9 @@ class UsersProxy():
             return None
     
     def _min_discount(self, user_id, mainItemset, itemset) -> float:
+        itemset = self._itemset[itemset]
         return itemset.price - (1/self._VP_ratio(user_id, mainItemset)) * dot(itemset.topic, self._graph.nodes[user_id]["topic"])
+    
     def discoutableItems(self, user_id, mainItemset: Itemset) -> Iterator[Itemset]:
         discoutable = []
         itemsetHandler = self._itemset

@@ -218,20 +218,29 @@ class TagActiveNode(TagImplement):
         return self._distirbution
 
 class TagEstimatedRevenue(TagImplement):
-    def __init__(self) -> None:
+    def __init__(self, graph) -> None:
         super().__init__()
-        self._revernue = 0
+        self._revenue = 0
+        self._graph = graph
+
     def tag(self, param, **kwargs):
         self.setParams(param, **kwargs)
-        graph = self._params["graph"]
-        if not isinstance(graph, ClusterGraph):
+        
+        if not isinstance(self._graph, ClusterGraph):
             raise TypeError("The type of graph is not ClusterGraph.")
         
         src, det = self._params["src"], self._params["det"]
-        self._revernue += graph.edges[src, det]["weight"] * self._params["amount"]
+        
+        # If src is none, det is root
+        if src is None:
+            self._revenue += self._params["amount"]
+        else:
+            self._revenue += self._graph.edges[src, det]["weight"] * self._params["amount"]
 
+        return self._params
+    
     def amount(self):
-        return self._amount   
+        return self._revenue   
 # class TagNonActive(TagImplement):
 #     def __init__(self):
 #         super().__init__()
