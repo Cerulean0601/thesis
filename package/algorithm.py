@@ -32,7 +32,7 @@ class Algorithm:
     def setGraph(self, graph):
         self._graph = graph
         self._model.setGraph(graph)
-        
+
     def setLimitCoupon(self, k):
         self._limitNum = k
 
@@ -93,7 +93,7 @@ class Algorithm:
         
         return coupons
 
-    def _locally_estimate(self, clusters:list, post_cluster:list, coupon:Coupon) -> float:
+    def _locally_estimate(self, clusters:list, post_cluster:list, coupon:Coupon = None) -> float:
         user_proxy = self._model.getUserProxy()
         coupons = user_proxy.getCoupons()
 
@@ -101,7 +101,8 @@ class Algorithm:
             raise TypeError("The type of graph should be ClusterGraph.")
 
         graph = user_proxy._graph
-        user_proxy.setCoupons(coupons + [coupon])
+        if coupon:
+            user_proxy.setCoupons(coupons + [coupon])
         revenue = 0
         predecessor_adopt = dict()
 
@@ -110,25 +111,27 @@ class Algorithm:
             if adopted_result:
                 predecessor_adopt[cluster] = adopted_result["decision_items"]
                 revenue += adopted_result["amount"]
-            
-        for cluster in post_cluster:
-            pre_edges = list(filter(lambda x: (x[0] in clusters) and (x[0] in predecessor_adopt), graph.in_edges(nbunch=cluster, data="weight")))
-            if pre_edges:
-                u,v,w = min(pre_edges, key=lambda x: x[2] )
-                self._model._propagate(u, v, predecessor_adopt[u])
-                mainItemset = user_proxy._adoptMainItemset(v)
-                if mainItemset:
-                    revenue += w*mainItemset["items"].price
+        
+        if clusters != post_cluster:
+            for cluster in post_cluster:
+                pre_edges = list(filter(lambda x: (x[0] in clusters) and (x[0] in predecessor_adopt), graph.in_edges(nbunch=cluster, data="weight")))
+                if pre_edges:
+                    u,v,w = min(pre_edges, key=lambda x: x[2] )
+                    self._model._propagate(u, v, predecessor_adopt[u])
+                    mainItemset = user_proxy._adoptMainItemset(v)
+                    if mainItemset:
+                        revenue += w*mainItemset["items"].price
         
         return revenue
     
-    def _globally_estimate(self, coupon:Coupon) -> float:
+    def _globally_estimate(self, coupon:Coupon = None) -> float:
         graph = self._model.getGraph()
         if not isinstance(graph, ClusterGraph):
             raise TypeError("The type of graph should be ClusterGraph.")
         
         coupons = self._model.getCoupons()
-        self._model.setCoupons(coupons + [coupon])
+        if coupon:
+            self._model.setCoupons(coupons + [coupon])
         self._model.setGraph(copy.deepcopy(self._reset_graph))
 
         tagger = Tagger()
@@ -156,10 +159,10 @@ class Algorithm:
 
         level_clusters = list(cluster_graph._level_travesal(self._model.getSeeds(), self._depth))
         leaf_level = len(level_clusters)-1
-        global_benfit = 0
+        global_benfit = self._globally_estimate([])
         for i in range(len(level_clusters)):
             print("Level: {}".format(i))
-            max_local_benfit = 0
+            max_local_benfit = self._locally_estimate(level_clusters[i], level_clusters[min(i+1, leaf_level)])
             max_local_margin_coupon = None
             for cluster in level_clusters[i]:
                 mainItemset = user_proxy._adoptMainItemset(cluster)
@@ -177,14 +180,13 @@ class Algorithm:
                     if margin_benfit > max_local_benfit:
                         max_local_benfit = margin_benfit
                         max_local_margin_coupon = coupon
+
             start = time.time()
             if max_local_margin_coupon:
                 global_margin_benfit = self._globally_estimate(max_local_margin_coupon)
                 print("Global estimation for level: {}, {}".format(i, time.time()-start))
                 if global_margin_benfit > global_benfit:
                     global_benfit = global_margin_benfit
-                    if not coupon:
-                        raise ValueError("Coupon is empty")
                     coupons.append(coupon)
                     self._model.setCoupons(coupons)
         user_proxy.setGraph(self._graph)

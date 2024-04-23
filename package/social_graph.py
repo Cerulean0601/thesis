@@ -76,7 +76,7 @@ class SN_Graph(nx.DiGraph):
         print("Done")
         return graph
         
-    def _bfs_sampling(self, depth:int = None, roots:list = [], threshold=10**(-5)):
+    def bfs_sampling(self, max_expected_len:dict, roots:list = [], threshold=10**(-3)):
 
         if len(list(self.nodes)) <= 0:
             raise Exception("The number of nodes in the original graph is zero or negative.")
@@ -99,20 +99,17 @@ class SN_Graph(nx.DiGraph):
         # bfs
         d = 0
         while not q.empty():
-            if depth and d > depth:
-                break
+            # if depth and d > depth:
+            #     break
 
             node = q.get()
             for out_neighbor, attr in self.adj[node].items():
-                re_weight = attr["weight"]
-
-                # if new weight is greater than threshold, then add the out_neighbor
-                if re_weight > threshold and "is_sample" not in attr:
+                if max_expected_len[out_neighbor] > threshold and "is_sample" not in attr:
                     self.edges[node, out_neighbor]["is_sample"] = True
                     subgraph.add_edge(node, out_neighbor)
                     q.put(out_neighbor)
 
-            d += 1
+            # d += 1
             q.task_done()
         subgraph.initAttr()
         return subgraph

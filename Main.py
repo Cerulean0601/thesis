@@ -81,15 +81,15 @@ def main():
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
     
     # simluation_times = 2
-    algo = Algorithm(model, 20, depth=6)
+    algo = Algorithm(model, 20, depth=2)
 
     start_time = time()
     
-    # subgraph = graph._bfs_sampling(depth=6, roots=model.getSeeds(), threshold=0)
-    # for s in seeds:
-    #     for attr, value in graph.nodes[s].items():
-    #         subgraph.nodes[s][attr] = value
-    # algo.setGraph(subgraph)
+    subgraph = graph.bfs_sampling(algo._max_expected_len, roots=model.getSeeds())
+    for s in seeds:
+        for attr, value in graph.nodes[s].items():
+            subgraph.nodes[s][attr] = value
+    algo.setGraph(subgraph)
 
     coupons = algo.genSelfCoupons()
 
@@ -102,7 +102,7 @@ def main():
     tagger.setNext(TagActiveNode())
 
     print("Simulate Diffusion...")
-    simulationTimes = 100
+    simulationTimes = 10000
     algo.setGraph(graph)
     for i in range(simulationTimes):
         model.getGraph().initAttr()
@@ -130,7 +130,7 @@ def main():
 if __name__ == '__main__':    
     
     test()
-    NOTIFY = True
+    NOTIFY = False
 
     if NOTIFY:
         notify = Notify(endpoint=NOTIFY_ENDPOINT)
