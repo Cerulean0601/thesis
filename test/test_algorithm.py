@@ -91,7 +91,7 @@ class TestAlgorithm(unittest.TestCase):
                         disItemset=self._itemset["iPhone"])
         level_clusters = list(self._graph._level_travesal(self._model.getSeeds(), depth=5))
         revenue = self._algo._locally_estimate(level_clusters[0], level_clusters[1], coupon)
-        self.assertEqual(revenue, 260.0)
+        self.assertEqual(revenue, 760.0)
 
     def test_globally_estimate(self):
         self._model.allocate(["1"], [self._itemset["Galaxy"]])

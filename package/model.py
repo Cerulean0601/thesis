@@ -35,9 +35,9 @@ class DiffusionModel():
     def getGraph(self):
         return self._graph
 
-    def setGraph(self, newGraph:SN_Graph):
-        if not isinstance(newGraph, SN_Graph):
-            raise TypeError("Replaced graph is not SN_Graph class.\n")
+    def setGraph(self, newGraph:SN_Graph|ClusterGraph):
+        if not isinstance(newGraph, (ClusterGraph, SN_Graph)):
+            raise TypeError("Replaced graph is not SN_Graph or ClusterGraph class.\n")
         
         self._user_proxy.setGraph(newGraph)
         self._graph = newGraph

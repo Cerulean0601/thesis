@@ -76,10 +76,10 @@ class SN_Graph(nx.DiGraph):
         print("Done")
         return graph
         
-    def _bfs_sampling(self, num_nodes:int = None, roots:list = [], threshold=10**(-7)):
+    def _bfs_sampling(self, depth:int = None, roots:list = [], threshold=10**(-5)):
 
-        if len(list(self.nodes)) == 0:
-            raise Exception("The number of nodes in the original graph is zero.")
+        if len(list(self.nodes)) <= 0:
+            raise Exception("The number of nodes in the original graph is zero or negative.")
 
         def max_degree(out_degree):
             pair = (None, 0)
@@ -97,13 +97,14 @@ class SN_Graph(nx.DiGraph):
             q.put(node)
 
         # bfs
+        d = 0
         while not q.empty():
-            if num_nodes != None and len(subgraph) <= num_nodes:
+            if depth and d > depth:
                 break
 
             node = q.get()
             for out_neighbor, attr in self.adj[node].items():
-                re_weight = 0.5*dot(self.nodes[node]["topic"], self.nodes[out_neighbor]["topic"]) + 0.5*attr["weight"]
+                re_weight = attr["weight"]
 
                 # if new weight is greater than threshold, then add the out_neighbor
                 if re_weight > threshold and "is_sample" not in attr:
@@ -111,16 +112,9 @@ class SN_Graph(nx.DiGraph):
                     subgraph.add_edge(node, out_neighbor)
                     q.put(out_neighbor)
 
-        q.task_done()
+            d += 1
+            q.task_done()
         subgraph.initAttr()
-        return subgraph
-      
-    def sampling_subgraph(self, num_iter:int = 1, num_nodes:int = None, roots:list = [], threshold=10**(-7)):
-        subgraph = SN_Graph(self.topic, located=self.convertDirected())
-
-        for i in range(num_iter):
-            population = deepcopy(self)
-            subgraph += population._bfs_sampling(num_nodes, roots, threshold=threshold)
         return subgraph
 
     @staticmethod

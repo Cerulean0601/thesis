@@ -1,5 +1,5 @@
 import unittest
-from time import time, ctime
+from time import time, ctime, sleep
 from notify_run import Notify
 # CONSTANT
 DATA_ROOT = "./data"
@@ -18,6 +18,7 @@ def test():
 #logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
 import pandas as pd
+import networkx as nx
 
 from package.tag import Tagger, TagRevenue, TagActiveNode
 from package.model import DiffusionModel
@@ -69,7 +70,6 @@ def main():
                            items_file=AMAZON_PATH + "/items_with_" + str(NUM_TOPICS) + "_topic.csv")
 
     graph = SN_Graph.construct(FACEBOOK_PATH + "/edges", topicModel, located=False)
-
     relation = ItemRelation()
     relation.construct(AMAZON_PATH + "/sample_items.csv")
     itemset = ItemsetFlyweight(getItemsPrice(AMAZON_PATH + "/sample_items.csv"), topicModel, relation)
@@ -77,39 +77,50 @@ def main():
     model = DiffusionModel( graph, itemset, threshold=10**(-5), name="amazon in dblp")
     seed_size = min(itemset.size, graph.number_of_nodes())
     seeds = model.selectSeeds(seed_size)
+    
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
     
     # simluation_times = 2
-    algo = Algorithm(model, 20, depth=5)
-    performanceFile = r"./result/Self.txt"
-                
+    algo = Algorithm(model, 20, depth=6)
+
     start_time = time()
     
-    coupons = algo.genSelfCoupons()
+    # subgraph = graph._bfs_sampling(depth=6, roots=model.getSeeds(), threshold=0)
+    # for s in seeds:
+    #     for attr, value in graph.nodes[s].items():
+    #         subgraph.nodes[s][attr] = value
+    # algo.setGraph(subgraph)
 
-    # if k == 0:
-    #     outputCoupons, tagger = algo.simulation([])
-    # else:
-    #     outputCoupons, tagger = algo.simulation(candidatedCoupons)
+    coupons = algo.genSelfCoupons()
 
     end_time = time()
 
+    print("time:{}".format(end_time-start_time))
     model.setCoupons(coupons)
     tagger = Tagger()
     tagger.setNext(TagRevenue(graph, model.getSeeds(), algo._max_expected_len))
     tagger.setNext(TagActiveNode())
-    model.diffusion(tagger)
 
+    print("Simulate Diffusion...")
+    simulationTimes = 100
+    algo.setGraph(graph)
+    for i in range(simulationTimes):
+        model.getGraph().initAttr()
+        model.diffusion(tagger)
+
+    performanceFile = r"./result/Self.txt"
     with open(performanceFile, "a") as record:
-        
-        record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},k={6}\n".format(
+
+        tagger["TagRevenue"].avg(simulationTimes)
+        tagger["TagActiveNode"].avg(simulationTimes)
+
+        record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5}\n".format(
             ctime(end_time),
             (end_time - start_time),
             tagger["TagRevenue"].amount(),
             tagger["TagRevenue"].expected_amount(),
             tagger["TagActiveNode"].amount(),
             tagger["TagActiveNode"].expected_amount(),
-            k,
             ))
         
         for c in coupons:

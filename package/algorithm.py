@@ -19,6 +19,7 @@ class Algorithm:
     def __init__(self, model, k, depth, cluster_theta=0.9, simulationTimes=1):
         self._model = model
         self._graph = model.getGraph()
+        self._reset_graph = copy.deepcopy(self._graph)
         self._itemset = model.getItemsetHandler()
         self._max_expected = dict()
         self._limitNum = k
@@ -28,6 +29,10 @@ class Algorithm:
             self._max_expected_len, self._max_expected_path = SN_Graph.max_product_path(self._graph, self._model.getSeeds())
         self.simulationTimes = simulationTimes
 
+    def setGraph(self, graph):
+        self._graph = graph
+        self._model.setGraph(graph)
+        
     def setLimitCoupon(self, k):
         self._limitNum = k
 
@@ -102,14 +107,18 @@ class Algorithm:
 
         for cluster in clusters:
             adopted_result = user_proxy.adopt(cluster)
-            predecessor_adopt[cluster] = adopted_result["decision_items"]
-            revenue += adopted_result["amount"] - adopted_result["mainItemset"].price
+            if adopted_result:
+                predecessor_adopt[cluster] = adopted_result["decision_items"]
+                revenue += adopted_result["amount"]
             
         for cluster in post_cluster:
-            u,v,w = min(graph.in_edges(nbunch=cluster, data="weight"), key=lambda x: x[2])
-            self._model._propagate(u, v, predecessor_adopt[u])
-            mainItemset = user_proxy._adoptMainItemset(v)["items"]
-            revenue += w*mainItemset.price
+            pre_edges = list(filter(lambda x: (x[0] in clusters) and (x[0] in predecessor_adopt), graph.in_edges(nbunch=cluster, data="weight")))
+            if pre_edges:
+                u,v,w = min(pre_edges, key=lambda x: x[2] )
+                self._model._propagate(u, v, predecessor_adopt[u])
+                mainItemset = user_proxy._adoptMainItemset(v)
+                if mainItemset:
+                    revenue += w*mainItemset["items"].price
         
         return revenue
     
@@ -120,25 +129,32 @@ class Algorithm:
         
         coupons = self._model.getCoupons()
         self._model.setCoupons(coupons + [coupon])
+        self._model.setGraph(copy.deepcopy(self._reset_graph))
+
         tagger = Tagger()
-        tagger.setNext(TagEstimatedRevenue(graph=graph))
+        tagger.setNext(TagEstimatedRevenue(graph=self._model.getGraph()))
         self._model.DeterministicDiffusion(self._depth, tagger)
 
+        self._model.setCoupons(coupons)
+        self._model.setGraph(graph)
         return tagger["TagEstimatedRevenue"].amount()
     def genSelfCoupons(self):
         print("Clustering the graph...")
         start = time.time()
         cluster_graph = ClusterGraph(graph = self._graph, 
                                     seeds = self._model.getSeeds(),
+                                    located = False,
                                     depth = self._depth,
                                     theta = self._cluster_theta)
         print("Execution time for clustering graph: {}".format(time.time() - start))
 
+        self._model.setGraph(cluster_graph)
+        self._reset_graph = copy.deepcopy(cluster_graph)
+
         user_proxy = self._model.getUserProxy()
-        user_proxy.setGraph(cluster_graph)
         coupons = self._model.getCoupons()
 
-        level_clusters = list(self._cluster_graph._level_travesal(self._depth))
+        level_clusters = list(cluster_graph._level_travesal(self._model.getSeeds(), self._depth))
         leaf_level = len(level_clusters)-1
         global_benfit = 0
         for i in range(len(level_clusters)):
@@ -146,24 +162,31 @@ class Algorithm:
             max_local_benfit = 0
             max_local_margin_coupon = None
             for cluster in level_clusters[i]:
-                accItemset = user_proxy._adoptMainItemset(cluster)["items"]
+                mainItemset = user_proxy._adoptMainItemset(cluster)
+                if not mainItemset: 
+                    continue
+
+                accItemset = mainItemset["items"]
                 for disItemset in user_proxy.discoutableItems(cluster, accItemset):
                     discount = user_proxy._min_discount(cluster, accItemset, disItemset)
                     coupon = Coupon(accItemset.price, accItemset, discount, disItemset)
                     
                     start = time.time()
                     margin_benfit = self._locally_estimate(level_clusters[i], level_clusters[min(i+1, leaf_level)], coupon)
-                    print("Local estimation for level: {}, {}".format(i, time.time()-start))
+                    print("Local estimation for level {}: {}".format(i, time.time()-start))
                     if margin_benfit > max_local_benfit:
                         max_local_benfit = margin_benfit
                         max_local_margin_coupon = coupon
             start = time.time()
-            global_margin_benfit = self._globally_estimate(max_local_margin_coupon)
-            print("Global estimation for level: {}, {}".format(i, time.time()-start))
-            if global_margin_benfit > global_benfit:
-                global_benfit = global_margin_benfit
-                coupons.append(coupon)
-                
+            if max_local_margin_coupon:
+                global_margin_benfit = self._globally_estimate(max_local_margin_coupon)
+                print("Global estimation for level: {}, {}".format(i, time.time()-start))
+                if global_margin_benfit > global_benfit:
+                    global_benfit = global_margin_benfit
+                    if not coupon:
+                        raise ValueError("Coupon is empty")
+                    coupons.append(coupon)
+                    self._model.setCoupons(coupons)
         user_proxy.setGraph(self._graph)
         return coupons
     

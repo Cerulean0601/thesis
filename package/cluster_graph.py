@@ -41,7 +41,8 @@ class ClusterGraph(SN_Graph):
 
                 for node in entity_nodes:
                     out_neighbors = out_neighbors.union(set(self._original_g.neighbors(node)))
-
+                
+                # print("depth {} , number of neighbors: {}".format(d, len(out_neighbors)))
                 out_neighbors = sorted(list(out_neighbors))
                 _cluster_neighbors = self._clustering(out_neighbors, theta)
                 for cluster in _cluster_neighbors:
@@ -58,7 +59,7 @@ class ClusterGraph(SN_Graph):
                     
                     if not self.has_edge(predecessor, node_name):
                         weight = self._weighting(predecessor, node_name)
-                        self.add_edge(predecessor, node_name, weight=weight)
+                        self.add_edge(predecessor, node_name, weight=weight, is_tested=False)
                         next_level.put(node_name)
 
             next_level, current_level = current_level, next_level
