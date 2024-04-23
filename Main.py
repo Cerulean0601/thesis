@@ -19,6 +19,7 @@ def test():
 
 import pandas as pd
 import networkx as nx
+from copy import deepcopy
 
 from package.tag import Tagger, TagRevenue, TagActiveNode
 from package.model import DiffusionModel
@@ -80,53 +81,55 @@ def main():
     
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
     
-    # simluation_times = 2
-    algo = Algorithm(model, 20, depth=2)
+    for d in range(1,4):
+        algo = Algorithm(model, 20, depth=d)
 
-    start_time = time()
-    
-    subgraph = graph.bfs_sampling(algo._max_expected_len, roots=model.getSeeds())
-    for s in seeds:
-        for attr, value in graph.nodes[s].items():
-            subgraph.nodes[s][attr] = value
-    algo.setGraph(subgraph)
-
-    coupons = algo.genSelfCoupons()
-
-    end_time = time()
-
-    print("time:{}".format(end_time-start_time))
-    model.setCoupons(coupons)
-    tagger = Tagger()
-    tagger.setNext(TagRevenue(graph, model.getSeeds(), algo._max_expected_len))
-    tagger.setNext(TagActiveNode())
-
-    print("Simulate Diffusion...")
-    simulationTimes = 10000
-    algo.setGraph(graph)
-    for i in range(simulationTimes):
-        model.getGraph().initAttr()
-        model.diffusion(tagger)
-
-    performanceFile = r"./result/Self.txt"
-    with open(performanceFile, "a") as record:
-
-        tagger["TagRevenue"].avg(simulationTimes)
-        tagger["TagActiveNode"].avg(simulationTimes)
-
-        record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5}\n".format(
-            ctime(end_time),
-            (end_time - start_time),
-            tagger["TagRevenue"].amount(),
-            tagger["TagRevenue"].expected_amount(),
-            tagger["TagActiveNode"].amount(),
-            tagger["TagActiveNode"].expected_amount(),
-            ))
+        start_time = time()
         
-        for c in coupons:
-            record.write(str(c) + "\n")
-        record.write("\n")
+        subgraph = graph.bfs_sampling(algo._max_expected_len, roots=model.getSeeds())
+        for s in seeds:
+            for attr, value in graph.nodes[s].items():
+                subgraph.nodes[s][attr] = value
+        algo.setGraph(subgraph)
 
+        coupons = algo.genSelfCoupons()
+
+        end_time = time()
+
+        print("time:{}".format(end_time-start_time))
+        model.setCoupons(coupons)
+        tagger = Tagger()
+        tagger.setNext(TagRevenue(graph, model.getSeeds(), algo._max_expected_len))
+        tagger.setNext(TagActiveNode())
+
+        print("Simulate Diffusion...")
+        start = time()
+        simulationTimes = 1
+        algo.setGraph(graph)
+        for i in range(simulationTimes):
+            g = model.getGraph()
+            g.initAttr()
+            model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
+            model.diffusion(tagger)
+        print(time()-start)
+        performanceFile = r"./result/Self.txt"
+        with open(performanceFile, "a") as record:
+
+            tagger["TagRevenue"].avg(simulationTimes)
+            tagger["TagActiveNode"].avg(simulationTimes)
+
+            record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5}\n".format(
+                ctime(end_time),
+                (end_time - start_time),
+                tagger["TagRevenue"].amount(),
+                tagger["TagRevenue"].expected_amount(),
+                tagger["TagActiveNode"].amount(),
+                tagger["TagActiveNode"].expected_amount(),
+                ))
+            
+            for c in coupons:
+                record.write(str(c) + "\n")
+            record.write("\n")
 if __name__ == '__main__':    
     
     test()

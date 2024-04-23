@@ -104,7 +104,8 @@ class SN_Graph(nx.DiGraph):
 
             node = q.get()
             for out_neighbor, attr in self.adj[node].items():
-                if max_expected_len[out_neighbor] > threshold and "is_sample" not in attr:
+                if max_expected_len[out_neighbor] > threshold and \
+                    ("is_sample" not in attr or not attr["is_sample"]):
                     self.edges[node, out_neighbor]["is_sample"] = True
                     subgraph.add_edge(node, out_neighbor)
                     q.put(out_neighbor)
@@ -112,6 +113,7 @@ class SN_Graph(nx.DiGraph):
             # d += 1
             q.task_done()
         subgraph.initAttr()
+        nx.set_edge_attributes(self, False, "is_sample")
         return subgraph
 
     @staticmethod
