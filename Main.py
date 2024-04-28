@@ -109,7 +109,6 @@ def main():
         for i in range(simulationTimes):
             g = model.getGraph()
             g.initAttr()
-            model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
             model.diffusion(tagger)
         print(time()-start)
         performanceFile = r"./result/Self.txt"

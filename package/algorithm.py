@@ -36,13 +36,13 @@ class Algorithm:
     def setLimitCoupon(self, k):
         self._limitNum = k
 
-    def calculateMaxExpProbability(self):
-        G = self._graph
-        seeds = self._model.getSeeds()
-        if seeds is None or len(seeds) == 0:
-            raise ValueError("Seed set is empty.")
+    # def calculateMaxExpProbability(self):
+    #     G = self._graph
+    #     seeds = self._model.getSeeds()
+    #     if seeds is None or len(seeds) == 0:
+    #         raise ValueError("Seed set is empty.")
         
-        self._max_expected_subgraph, self._max_expected = SN_Graph.compile_max_product_graph(G, seeds)
+    #     self._max_expected_subgraph, self._max_expected = SN_Graph.compile_max_product_graph(G, seeds)
 
     def genAllCoupons(self, price_step:float):
         '''

@@ -6,6 +6,7 @@ import json
 from random import random
 from itertools import combinations
 import math
+from collections.abc import Iterable
 
 from package.topic import TopicModel
 
@@ -15,7 +16,9 @@ class Itemset():
         Structure of Itemset
     '''
 
-    def __init__(self, numbering, price, topic):
+    def __init__(self, numbering:Iterable, price, topic):
+        if not isinstance(numbering, Iterable):
+            raise TypeError('Numbering must be iterable')
         self.numbering = set(numbering)  if numbering else set()
         self.price = price
         self.topic = topic
@@ -44,7 +47,7 @@ class Itemset():
         sortedNum = sorted(self.numbering)
         return " ".join(str(num) for num in sortedNum)
     
-    def __hash__(self) -> int:
+    def __hash__(self) -> int: # pragma: no cover
         return hash(self.__str__)
 
     def empty(self):
@@ -185,7 +188,7 @@ class ItemsetFlyweight():
             yield obj
 
     def getSingleItems(self) -> list[Itemset]:
-        return [obj for ids, obj in self.__iter__() if len(obj) == 1]
+        return [obj for obj in self.__iter__() if len(obj) == 1]
     
     def _aggregateTopic(self, collection):
         aggregated = [0]*len(self._map[collection[0]].topic)
@@ -278,41 +281,41 @@ class ItemsetFlyweight():
                 itemset = self.__getitem__(combination)
                 yield itemset
         
-    def maxTopicValue(self, userTopic):
+    # def maxTopicValue(self, userTopic):
         
-        maxValue = 0
-        maxObj = None
+    #     maxValue = 0
+    #     maxObj = None
 
-        for id, obj in self.__iter__():
+    #     for id, obj in self.__iter__():
 
-            value = 0
-            for t in range(len(userTopic)):
-                value += obj.topic[t]*userTopic[t]
+    #         value = 0
+    #         for t in range(len(userTopic)):
+    #             value += obj.topic[t]*userTopic[t]
 
-            #print("{0}: {1}".format(id, value))
-            if value > maxValue:
-                maxValue, maxObj = value, obj
+    #         #print("{0}: {1}".format(id, value))
+    #         if value > maxValue:
+    #             maxValue, maxObj = value, obj
 
-        #print("max {0}: {1}".format(str(maxObj), maxValue))
-        return maxObj
+    #     #print("max {0}: {1}".format(str(maxObj), maxValue))
+    #     return maxObj
 
-    def maxSupersetValue(self, userTopic, mainItemset):
+    # def maxSupersetValue(self, userTopic, mainItemset):
         
-        maxValue = 0
-        maxObj = None
+    #     maxValue = 0
+    #     maxObj = None
 
-        for id, obj in self.__iter__():
-            if self.issuperset(obj, mainItemset):
-                value = 0
-                for t in range(len(userTopic)):
-                    value += obj.topic[t]*userTopic[t]
+    #     for id, obj in self.__iter__():
+    #         if self.issuperset(obj, mainItemset):
+    #             value = 0
+    #             for t in range(len(userTopic)):
+    #                 value += obj.topic[t]*userTopic[t]
 
-                #print("{0}: {1}".format(id, value))
-                if value > maxValue:
-                    maxValue, maxObj = value, obj
+    #             #print("{0}: {1}".format(id, value))
+    #             if value > maxValue:
+    #                 maxValue, maxObj = value, obj
 
-        #print("max {0}: {1}".format(str(maxObj), maxValue))
-        return maxObj
+    #     #print("max {0}: {1}".format(str(maxObj), maxValue))
+    #     return maxObj
 
     def sortByPrice(self, arr, reverse=False):
         return sorted(arr, key=lambda x: self.__getitem__(x).price, reverse=reverse)

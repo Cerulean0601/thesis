@@ -102,14 +102,41 @@ class TestAlgorithm(unittest.TestCase):
                         disItemset=self._itemset["iPhone"])
         self.assertAlmostEqual(self._algo._globally_estimate(coupon), 4937.083333333334)
 
-    @unittest.skip("The execution time is too expensive")
+    # @unittest.skip("The execution time is too expensive")
     def test_greedy(self):
+        TOPICS = {
+            "Node": {
+                0: [0.9, 0.1, 0.0],
+                1: [0.2, 0.8, 0.0],
+                2: [0.5, 0.2, 0.3],
+                3: [0.6, 0.3, 0.1],
+                4: [0.7, 0.2, 0.1],
+                5: [0.45, 0.65, 0]
+            }
+        }
+        
         itemset = self._model.getItemsetHandler()
+
+        graph = SN_Graph(TOPICS["Node"], located=False)
+        nx.add_path(graph, [0,1,2,3])
+        nx.add_path(graph, [1,4,2])
+        graph.add_edge(0,2)
+        graph.add_edge(5,3)
+        graph.initAttr()
+
+        graph.edges[0,2]["is_active"] = False
+        graph.edges[1,2]["is_active"] = True
+        graph.edges[2,3]["is_active"] = True
+        graph.edges[4,2]["is_active"] = True
+
+        self._model.setGraph(graph)
+        self._model.selectSeeds(2)
+        self._model.allocate(self._model.getSeeds(), [itemset["Galaxy"], itemset["iPhone"]])
 
         coupons = [Coupon(280, itemset["iPhone Galaxy"], 80, itemset["Galaxy"]),
                    Coupon(280, itemset["iPhone AirPods"], 50, itemset["AirPods"])]
         
-        algo = Algorithm(self._model, 2)
+        algo = Algorithm(self._model, k=2, depth=0)
         for k in range(2, 5):
             outputCoupon, tagger = algo.simulation(coupons)
             self.assertListEqual([coupons[0]], outputCoupon, "The output of coupons is not correct.")

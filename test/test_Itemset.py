@@ -2,6 +2,15 @@ import unittest
 from package.itemset import ItemsetFlyweight, ItemRelation,Itemset
 import pandas as pd
 
+class TestItemset(unittest.TestCase):
+    def __init__(self, methodName: str = "runTest") -> None:
+        super().__init__(methodName)
+
+    def test_magic_method(self):
+        x = Itemset(["a","b"], 200, [0,1])
+        with self.assertRaises(TypeError):
+            x == list()
+        self.assertEqual(len(x), 2)
 class TestItemsetFlyweight(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(TestItemsetFlyweight, self).__init__(*args, **kwargs)
@@ -31,6 +40,16 @@ class TestItemsetFlyweight(unittest.TestCase):
         relation = ItemRelation(relation_dict)
         self._itemset = ItemsetFlyweight(prices, topic, relation)
         return super().setUp()
+
+    def test_magic_method(self):
+        
+        items = self._itemset["0"]
+        self.assertEqual(self._itemset[items], items)
+
+    def test_all_items(self):
+        itemset = self._itemset
+        self.assertSetEqual(set(self._itemset.getSingleItems()),
+                             set([itemset["0"], itemset["1"], itemset["2"]]))
 
     def assertListAlomstEqual(self, list1: list, list2: list, place=7) -> None:
         if len(list1) != len(list2):

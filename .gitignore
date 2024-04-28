@@ -11,3 +11,4 @@ Untitled-1.ipynb
 htmlcov/
 *.csv
 case_study.ipynb
+.coverage*

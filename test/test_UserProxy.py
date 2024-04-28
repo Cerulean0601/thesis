@@ -69,6 +69,12 @@ class TestUserProxy(unittest.TestCase):
         result = self._user_proxy._adoptAddtional("over_threshold", mainItemset["items"])
         self.assertEqual(result["items"], self._itemset["0 2"])
 
+        # 累積商品和主商品交集為空集合
+        self._graph.add_node("no_accItems", adopted_set=None, desired_set=self._itemset["1"], topic=[0.8, 0.2])
+        mainItemset = self._user_proxy._adoptMainItemset("no_accItems")
+        result = self._user_proxy._adoptAddtional("no_accItems", mainItemset["items"])
+        self.assertEqual('items' in result, False)
+
         #-------------------------------------------------------
         self._graph.add_node("addtionally_adopted", adopted_set=self._itemset["0"], desired_set=self._itemset["0 1 2"], topic=[0.2, 0.8])
         
@@ -81,8 +87,27 @@ class TestUserProxy(unittest.TestCase):
         self.assertEqual(result["tradeOff_items"], self._itemset["1 2"])
 
         self._itemset["0 1 2"].topic = origin_topic
-        # 交易金額等於折扣金額
-    
+        
+    def test_discount(self):
+        coupon = Coupon(180, self._itemset["0"], 20, self._itemset["0 1"])
+        self._user_proxy._discount(self._itemset["1"], coupon)
+
+        coupon = Coupon(300, self._itemset["0 1"], 20, self._itemset["0 1"])
+        self._user_proxy._discount(self._itemset["1"], coupon)
+
+    def test_discountable(self):
+        # Should return an iterator of all itemsets that are discountable for the given user and main itemset
+        mainItemset = self._itemset["0"]
+        self._graph.add_node("discountable", topic=[0.11779999999999999, 0.47209999999999996])
+        discountable_items = self._user_proxy.discoutableItems(user_id="discountable", mainItemset=mainItemset)
+        self.assertSetEqual(set(discountable_items), set([self._itemset["0 1"], self._itemset["0 2"], self._itemset["0 1 2"]]))
+
+        # empty reuslt
+        mainItemset = self._itemset["1"]
+        self._graph.add_node("empty_discountable", topic=[0.8, 0.2])
+        discountable_items = self._user_proxy.discoutableItems(user_id="empty_discountable", mainItemset=mainItemset)
+        self.assertListEqual(list(discountable_items), [])
+
 class TestAdoptMainItemset(unittest.TestCase):
     def setUp(self) -> None:
         itemset_topic = {

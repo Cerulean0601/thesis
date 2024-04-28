@@ -157,7 +157,7 @@ class TagRevenue(TagImplement):
         self._expected_amount = 0
         self._seeds = seeds
         self._graph = graph
-        if not max_expected_len:
+        if not bool(max_expected_len):
             self._compile_graph, self.max_expected_len = SN_Graph.compile_max_product_graph(graph, self._seeds)
         else:
             self.max_expected_len = max_expected_len
