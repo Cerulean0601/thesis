@@ -108,6 +108,7 @@ class Algorithm:
 
         for cluster in clusters:
             adopted_result = user_proxy.adopt(cluster)
+            nx.set_node_attributes(user_proxy._graph, {cluster:{'adopted_set': None, "adopted_records":list()}})
             if adopted_result:
                 predecessor_adopt[cluster] = adopted_result["decision_items"]
                 revenue += adopted_result["amount"]
@@ -162,8 +163,13 @@ class Algorithm:
         global_benfit = self._globally_estimate([])
         for i in range(len(level_clusters)):
             print("Level: {}".format(i))
-            max_local_benfit = self._locally_estimate(level_clusters[i], level_clusters[min(i+1, leaf_level)])
+            
+            if i != leaf_level:
+                max_local_benfit = self._locally_estimate(level_clusters[i], level_clusters[min(i+1, leaf_level)])
+            else:
+                max_local_benfit = self._locally_estimate(level_clusters[i], [])
             max_local_margin_coupon = None
+
             for cluster in level_clusters[i]:
                 mainItemset = user_proxy._adoptMainItemset(cluster)
                 if not mainItemset: 
@@ -176,7 +182,7 @@ class Algorithm:
                     
                     start = time.time()
                     margin_benfit = self._locally_estimate(level_clusters[i], level_clusters[min(i+1, leaf_level)], coupon)
-                    print("Local estimation for level {}: {}".format(i, time.time()-start))
+                    # print("Local estimation for level {}: {}".format(i, time.time()-start))
                     if margin_benfit > max_local_benfit:
                         max_local_benfit = margin_benfit
                         max_local_margin_coupon = coupon

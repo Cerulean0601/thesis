@@ -59,7 +59,7 @@ class ClusterGraph(SN_Graph):
                     
                     if not self.has_edge(predecessor, node_name):
                         weight = self._weighting(predecessor, node_name)
-                        self.add_edge(predecessor, node_name, weight=weight, is_tested=False)
+                        self.add_edge(predecessor, node_name, weight=weight, is_tested=False, is_active=True)
                         next_level.put(node_name)
 
             next_level, current_level = current_level, next_level

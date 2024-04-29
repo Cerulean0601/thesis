@@ -93,45 +93,45 @@ def main():
         algo.setGraph(subgraph)
 
         coupons = algo.genSelfCoupons()
+        print(coupons)
+        # end_time = time()
 
-        end_time = time()
+        # print("time:{}".format(end_time-start_time))
+        # model.setCoupons(coupons)
+        # tagger = Tagger()
+        # tagger.setNext(TagRevenue(graph, model.getSeeds(), algo._max_expected_len))
+        # tagger.setNext(TagActiveNode())
 
-        print("time:{}".format(end_time-start_time))
-        model.setCoupons(coupons)
-        tagger = Tagger()
-        tagger.setNext(TagRevenue(graph, model.getSeeds(), algo._max_expected_len))
-        tagger.setNext(TagActiveNode())
+        # print("Simulate Diffusion...")
+        # start = time()
+        # simulationTimes = 1
+        # algo.setGraph(graph)
+        # for i in range(simulationTimes):
+        #     g = model.getGraph()
+        #     g.initAttr()
+        #     model.diffusion(tagger)
+        # print(time()-start)
+        # performanceFile = r"./result/Self.txt"
+        # with open(performanceFile, "a") as record:
 
-        print("Simulate Diffusion...")
-        start = time()
-        simulationTimes = 1
-        algo.setGraph(graph)
-        for i in range(simulationTimes):
-            g = model.getGraph()
-            g.initAttr()
-            model.diffusion(tagger)
-        print(time()-start)
-        performanceFile = r"./result/Self.txt"
-        with open(performanceFile, "a") as record:
+        #     tagger["TagRevenue"].avg(simulationTimes)
+        #     tagger["TagActiveNode"].avg(simulationTimes)
 
-            tagger["TagRevenue"].avg(simulationTimes)
-            tagger["TagActiveNode"].avg(simulationTimes)
-
-            record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5}\n".format(
-                ctime(end_time),
-                (end_time - start_time),
-                tagger["TagRevenue"].amount(),
-                tagger["TagRevenue"].expected_amount(),
-                tagger["TagActiveNode"].amount(),
-                tagger["TagActiveNode"].expected_amount(),
-                ))
+        #     record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5}\n".format(
+        #         ctime(end_time),
+        #         (end_time - start_time),
+        #         tagger["TagRevenue"].amount(),
+        #         tagger["TagRevenue"].expected_amount(),
+        #         tagger["TagActiveNode"].amount(),
+        #         tagger["TagActiveNode"].expected_amount(),
+        #         ))
             
-            for c in coupons:
-                record.write(str(c) + "\n")
-            record.write("\n")
+        #     for c in coupons:
+        #         record.write(str(c) + "\n")
+        #     record.write("\n")
 if __name__ == '__main__':    
     
-    test()
+    # test()
     NOTIFY = False
 
     if NOTIFY:
