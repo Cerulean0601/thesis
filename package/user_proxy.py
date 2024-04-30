@@ -3,7 +3,6 @@ from itertools import combinations
 from multiprocessing.pool import ThreadPool
 from numpy import dot
 from collections.abc import Iterator
-import line_profiler
 
 from package.social_graph import SN_Graph
 from package.cluster_graph import ClusterGraph
@@ -166,7 +165,6 @@ class UsersProxy():
                 mainItemset(Itemset): 第一購買階段決定的商品組合，此組合為考量的商品加上曾購買過的商品
         '''
         
-        # @line_profiler.profile
         def parallelAdopt(args):
             result = None
             mainItemset, itemset_instance, coupon = args[0], args[1], args[2]
