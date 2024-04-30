@@ -127,11 +127,9 @@ class DiffusionModel():
         # push the node who will adopt items at this step
         adoptionQueue = Queue()
         for seed in self._seeds:
-            logging.debug("Allocate {0} to {1}".format(self._graph.nodes[seed]["desired_set"], seed))
             adoptionQueue.put((None, seed))
 
-        logging.info("Allocation is complete.")
-        
+       
         # push the node who have adopted items at this step
         propagatedQueue = Queue()
 
@@ -162,10 +160,10 @@ class DiffusionModel():
                     }
                 '''
                 
-                logging.debug("Parameters of tagger------------------------------ ")
-                for k, v in trade.items():
-                    logging.debug("{0}: {1}".format(k, v))
-                logging.debug("--------------------------------")
+                # logging.debug("Parameters of tagger------------------------------ ")
+                # for k, v in trade.items():
+                #     logging.debug("{0}: {1}".format(k, v))
+                # logging.debug("--------------------------------")
 
                 trade["src"] = src
                 trade["det"] = node_id
@@ -181,9 +179,7 @@ class DiffusionModel():
                 node_id, tradeOff_items = propagatedQueue.get()
                 for out_neighbor in self._graph.neighbors(node_id):
                     is_activated  = self._propagate(node_id, out_neighbor, tradeOff_items)
-                    logging.info("{0} tries to activate {1}: {2}".format(node_id, det, is_activated))
                     if is_activated:
-                        logging.debug("{0}'s desired_set: {1}".format(det, self._graph.nodes[det]["desired_set"]))
                         adoptionQueue.put((node_id, out_neighbor))
                 propagatedQueue.task_done()
     
@@ -211,7 +207,7 @@ class DiffusionModel():
 
         # Loop until no one adopted items at the previous step
         step = 0
-        while not adoptionQueue.empty() and step < depth:
+        while not adoptionQueue.empty() and step <= depth:
             
             # Loop until everyone check to decide whether adopt items
             while not adoptionQueue.empty():

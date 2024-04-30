@@ -2,7 +2,6 @@ from os.path import exists
 import nltk
 from gensim.models import LdaMulticore
 from gensim.corpora import dictionary
-import logging
 from random import random
 
 from package.utils import extractTokensWithID
@@ -42,7 +41,6 @@ class TopicModel():
         self._stopwords_path = "./nltk_data/corpora/stopwords/"
         if not exists(self._stopwords_path):
             nltk.download("stopwords", download_dir=self._stopwords_path)
-        logging.info("Download stopwords done.")
 
         self._items_id, item_docs = _prepare(items_file)
         if nodes_file != None:
@@ -50,9 +48,7 @@ class TopicModel():
             item_docs.extend(node_docs)
             docs = item_docs
 
-        logging.info("Prepare to construct corpora")
         self._id2word, self._corpus = _constructCorpus(docs)
-        logging.info("Construct LDA Model.")
         self._model = LdaMulticore(corpus=self._corpus, num_topics=self.number_topics, id2word=self._id2word)
 
         for j in range(len(self._items_id)):

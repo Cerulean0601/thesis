@@ -1,7 +1,6 @@
 import networkx as nx
 import queue
 import random
-import logging
 import numpy as np
 from copy import deepcopy
 

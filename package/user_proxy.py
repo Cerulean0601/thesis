@@ -1,9 +1,9 @@
 import sys
 from itertools import combinations
-import logging
 from multiprocessing.pool import ThreadPool
 from numpy import dot
 from collections.abc import Iterator
+import line_profiler
 
 from package.social_graph import SN_Graph
 from package.cluster_graph import ClusterGraph
@@ -118,13 +118,11 @@ class UsersProxy():
                 if self._itemset.issubset(adopted_set, X) and adopted_set != X:
 
                     VP = self._VP_ratio(user_id, X)
-                    logging.debug("User {0}, items {1}, VP ratio {2}".format(user_id, self._itemset[X], VP))
                     if VP > max_VP:
                         max_VP = VP
                         maxVP_mainItemset = X
 
         if maxVP_mainItemset is None or self._itemset[maxVP_mainItemset] == adopted_set:
-            logging.debug("User {0} did not adopt any new item.".format(user_id))
             return None
         
         return {"items": self._itemset[maxVP_mainItemset], "VP": max_VP} if maxVP_mainItemset != None else None
@@ -160,7 +158,6 @@ class UsersProxy():
             amount -= dealDiscount
 
         return ratio*(sim/amount) if amount != 0 else sys.float_info.max
-
     def _adoptAddtional(self, user_id, mainItemset):
         '''
             第二購買階段，即考量優惠方案的情況下
@@ -169,28 +166,30 @@ class UsersProxy():
                 mainItemset(Itemset): 第一購買階段決定的商品組合，此組合為考量的商品加上曾購買過的商品
         '''
         
-
+        # @line_profiler.profile
         def parallelAdopt(args):
             result = None
             mainItemset, itemset_instance, coupon = args[0], args[1], args[2]
 
-            if self._itemset.issuperset(itemset_instance, mainItemset):
-                # X 必須超過滿額門檻
-                diff_adopted = self._itemset.difference(itemset_instance, self._graph.nodes[user_id]["adopted_set"])
-                intersection = self._itemset.intersection(diff_adopted, coupon.accItemset)
-                
-                if intersection != None and intersection.price >= coupon.accThreshold:
-                    VP = self._addtionallyAdoptVP(user_id, mainItemset, itemset_instance, coupon)
-                    logging.debug("User {0}, items {1}, VP_ratio {2}, Coupon {3}".format(user_id, itemset_instance, VP, coupon))
-                    result = {"items": itemset_instance, "VP": VP, "coupon": coupon}
+            # X 必須超過滿額門檻
+            diff_adopted = self._itemset.difference(itemset_instance, self._graph.nodes[user_id]["adopted_set"])
+            intersection = self._itemset.intersection(diff_adopted, coupon.accItemset)
+            
+            if intersection != None and intersection.price >= coupon.accThreshold:
+                VP = self._addtionallyAdoptVP(user_id, mainItemset, itemset_instance, coupon)
+                result = {"items": itemset_instance, "VP": VP, "coupon": coupon}
 
             return result
 
         pool = ThreadPool()
         params = []
         for itemsetObj in self._itemset:
-            for coupon in self._coupons:
-                params.append([mainItemset, itemsetObj, coupon])
+            # 商品組合必須是主商品的超集
+            if self._itemset.issuperset(itemsetObj, mainItemset):
+                for coupon in self._coupons:
+                    #若主商品跟可累積商品的交集為空集合，則VP值等於0的情況下不需要考慮
+                    if self._itemset.intersection(mainItemset, coupon.accItemset):
+                        params.append([mainItemset, itemsetObj, coupon])
             
         resultList = pool.map(parallelAdopt, params)
         pool.close()
@@ -211,7 +210,6 @@ class UsersProxy():
                     
         #             if intersection != None and intersection.price > self._coupons[i].accThreshold:
         #                 VP = self._addtionallyAdoptVP(user_id, mainItemset, itemset_instance, self._coupons[i])
-        #                 logging.debug("User {0}, items {1}, VP_ratio {2}, Coupon {3}".format(user_id, itemset_instance, VP, self._coupons[i]))
 
         #                 if VP > max_VP:
         #                     max_VP = VP
@@ -236,7 +234,6 @@ class UsersProxy():
 
         actuallyDis = self._itemset.intersection(itemset, coupon.disItemset)
         return 0 if actuallyDis == None else min(actuallyDis.price, coupon.discount)
-    
     def adopt(self, user_id):
         '''
             使用者購買行為, 若挑選的主商品皆為已購買過的商品則不會產生任何的購買行為, 並且回傳None。
@@ -249,14 +246,12 @@ class UsersProxy():
 
                 None: 未發生購買行為
         ''' 
-        logging.debug("Adopt Main Itemset")
         mainItemset = self._adoptMainItemset(user_id)
 
         # 主商品皆為已購買過的商品
         # main itemset should be check whether is empty
 
         if mainItemset == None or self._itemset.issubset(mainItemset["items"], self._graph.nodes[user_id]["adopted_set"]):
-            logging.debug("User {0}'s main itemset is subset equal its adopted set.".format(user_id))
             return None
 
         trade = dict()
@@ -267,9 +262,8 @@ class UsersProxy():
         trade["amount"] = trade["tradeOff_items"].price
         trade["coupon"] = None
         trade["VP"] = mainItemset["VP"]
-        #logging.info("user {0} choose main itemset {1}.".format(user_id, mainItemset["items"]))
+
         if self._coupons != None and len(self._coupons) != 0:
-            logging.info("Adopt Addtional Itemset")
             addtional = self._adoptAddtional(user_id, mainItemset["items"])
             if trade["VP"] < addtional["VP"]:
                 trade["VP"] = addtional["VP"]

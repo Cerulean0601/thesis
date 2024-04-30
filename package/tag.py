@@ -1,4 +1,3 @@
-import logging
 import networkx as nx
 import math
 import numpy as np
@@ -127,7 +126,6 @@ class TagAppending(TagImplement):
             self.table[seed] = dict()
         
         obj = self._itemset.maxSupersetValue(self._params["node"]["topic"], mainItemset)
-        logging.debug("Node: {0}, Maxum benfit itemset: {1}, Probability {2}".format(node_id, str(obj), expectedProbability))
 
         addItemset = self._itemset.difference(obj, mainItemset)
         ids = str(addItemset)

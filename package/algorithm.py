@@ -1,4 +1,3 @@
-
 from networkx import set_node_attributes
 import numpy as np
 from multiprocessing import Pool
@@ -7,6 +6,7 @@ from itertools import combinations
 from os import cpu_count
 import random, math
 import time
+import line_profiler
 
 from package.tag import *
 from package.model import DiffusionModel
@@ -92,7 +92,7 @@ class Algorithm:
             coupons.append(Coupon(account, allItems, account*dicountPercentage, allItems))
         
         return coupons
-
+    @line_profiler.profile
     def _locally_estimate(self, clusters:list, post_cluster:list, coupon:Coupon = None) -> float:
         user_proxy = self._model.getUserProxy()
         coupons = user_proxy.getCoupons()
@@ -107,8 +107,9 @@ class Algorithm:
         predecessor_adopt = dict()
 
         for cluster in clusters:
+            cluster_data = (user_proxy._graph.nodes[cluster]).copy()
             adopted_result = user_proxy.adopt(cluster)
-            nx.set_node_attributes(user_proxy._graph, {cluster:{'adopted_set': None, "adopted_records":list()}})
+            nx.set_node_attributes(graph, {cluster:cluster_data})
             if adopted_result:
                 predecessor_adopt[cluster] = adopted_result["decision_items"]
                 revenue += adopted_result["amount"]
@@ -123,6 +124,7 @@ class Algorithm:
                     if mainItemset:
                         revenue += w*mainItemset["items"].price
         
+        user_proxy.setCoupons(coupons)
         return revenue
     
     def _globally_estimate(self, coupon:Coupon = None) -> float:
@@ -156,14 +158,14 @@ class Algorithm:
         self._reset_graph = copy.deepcopy(cluster_graph)
 
         user_proxy = self._model.getUserProxy()
-        coupons = self._model.getCoupons()
+        coupons = []
 
         level_clusters = list(cluster_graph._level_travesal(self._model.getSeeds(), self._depth))
         leaf_level = len(level_clusters)-1
         global_benfit = self._globally_estimate([])
-        for i in range(len(level_clusters)):
+        for i in range(leaf_level+1):
             print("Level: {}".format(i))
-            
+
             if i != leaf_level:
                 max_local_benfit = self._locally_estimate(level_clusters[i], level_clusters[min(i+1, leaf_level)])
             else:
@@ -177,6 +179,7 @@ class Algorithm:
 
                 accItemset = mainItemset["items"]
                 for disItemset in user_proxy.discoutableItems(cluster, accItemset):
+                    disItemset = self._itemset.difference(disItemset, accItemset)
                     discount = user_proxy._min_discount(cluster, accItemset, disItemset)
                     coupon = Coupon(accItemset.price, accItemset, discount, disItemset)
                     

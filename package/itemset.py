@@ -252,7 +252,7 @@ class ItemsetFlyweight():
         a_set = ItemsetFlyweight._toSet(a)
         b_set = ItemsetFlyweight._toSet(b)
     
-        minus = a_set.difference(b_set)
+        minus = a_set - b_set
         return self.__getitem__(minus) if len(minus) != 0 else None
     
     def issubset(self, a, b) -> bool:
