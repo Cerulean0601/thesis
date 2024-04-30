@@ -92,7 +92,7 @@ class Algorithm:
             coupons.append(Coupon(account, allItems, account*dicountPercentage, allItems))
         
         return coupons
-    @line_profiler.profile
+    # @line_profiler.profile
     def _locally_estimate(self, clusters:list, post_cluster:list, coupon:Coupon = None) -> float:
         user_proxy = self._model.getUserProxy()
         coupons = user_proxy.getCoupons()
