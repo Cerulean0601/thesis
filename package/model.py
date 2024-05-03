@@ -235,6 +235,7 @@ class DiffusionModel():
                 trade["src"] = src
                 trade["det"] = node_id
                 
+
                 if tagger != None:
                      tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id], step=step)
 

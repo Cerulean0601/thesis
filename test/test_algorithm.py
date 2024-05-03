@@ -71,7 +71,7 @@ class TestAlgorithm(unittest.TestCase):
         relation = ItemRelation(RELATION)
         topic = TopicModel(3, TOPICS["Cluster"], TOPICS["Item"])
         self._itemset = ItemsetFlyweight(PRICES, topic, relation)
-        self._graph = ClusterGraph(theta = 0.9, depth = 5, located=False)
+        self._graph = ClusterGraph(theta = 0.9, depth = 4, located=False)
         self._graph.add_edges_from([(u, v) for u, v in edges.keys()])
         self._graph.initAttr()
         nx.set_node_attributes(self._graph, TOPICS["Cluster"], "topic")

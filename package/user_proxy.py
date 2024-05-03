@@ -77,7 +77,10 @@ class UsersProxy():
             itemset = self._itemset[itemset]
 
         result = self._itemset.difference(itemset ,adopted)
-        return self._similarity(user_id,itemset)/result.price if not result.empty() else 0
+        if result:
+            return self._similarity(user_id,itemset)/result.price
+        else:
+            return 0
   
     def _adoptMainItemset(self, user_id):
         '''
