@@ -196,7 +196,7 @@ class Algorithm:
                     global_benfit = global_margin_benfit
                     coupons.append(coupon)
                     self._model.setCoupons(coupons)
-        user_proxy.setGraph(self._graph)
+        self._model.setGraph(self._graph)
         return coupons
     
     def _parallel(self, args):

@@ -109,11 +109,11 @@ class ClusterGraph(SN_Graph):
 
         return expected_value(probabilities)
     
-    def _level_travesal(self, sources, depth) -> Iterator[set]:
-        seed_cluster =  set(sources)
-        yield seed_cluster
+    def _level_travesal(self, sources:list, depth) -> Iterator[list]:
 
-        level = set(s for s in seed_cluster)
+        yield sources
+
+        level = set(s for s in sources)
 
         d = 0
         while len(level) > 0 and d < depth:
@@ -123,7 +123,7 @@ class ClusterGraph(SN_Graph):
             
             level = next_level
             d += 1
-            yield level
+            yield sorted(list(level))
 
     def add_weighted_edges_from(self, ebunch_to_add, weight="weight", **attr):
         return super().add_weighted_edges_from(ebunch_to_add, weight, **attr)

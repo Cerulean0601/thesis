@@ -78,22 +78,24 @@ def main():
     model = DiffusionModel( graph, itemset, threshold=10**(-5), name="amazon in dblp")
     seed_size = min(itemset.size, graph.number_of_nodes())
     seeds = model.selectSeeds(seed_size)
-    
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
+    algo = Algorithm(model, 20, depth=0)
+
+    start_time = time()
     
-    for d in range(1,4):
-        algo = Algorithm(model, 20, depth=d)
+    subgraph = graph.bfs_sampling(algo._max_expected_len, roots=model.getSeeds())
+    for s in seeds:
+        for attr, value in graph.nodes[s].items():
+            subgraph.nodes[s][attr] = value
+    print(len(subgraph))
+    print(len(subgraph.edges))
+    algo.setGraph(subgraph)
 
-        start_time = time()
+    for d in range(0,2):
         
-        subgraph = graph.bfs_sampling(algo._max_expected_len, roots=model.getSeeds())
-        for s in seeds:
-            for attr, value in graph.nodes[s].items():
-                subgraph.nodes[s][attr] = value
-        algo.setGraph(subgraph)
-
+        algo._depth = d
         coupons = algo.genSelfCoupons()
-        print(coupons)
+        print([str(c) for c in coupons])
         # end_time = time()
 
         # print("time:{}".format(end_time-start_time))
