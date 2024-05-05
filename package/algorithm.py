@@ -105,7 +105,7 @@ class Algorithm:
         predecessor_adopt = dict()
 
         for cluster in clusters:
-            cluster_data = (user_proxy._graph.nodes[cluster]).copy()
+            cluster_data = copy.deepcopy(user_proxy._graph.nodes[cluster])
             adopted_result = user_proxy.adopt(cluster)
             nx.set_node_attributes(graph, {cluster:cluster_data})
             if adopted_result:

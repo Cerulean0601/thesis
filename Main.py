@@ -75,14 +75,12 @@ def main():
     relation.construct(AMAZON_PATH + "/sample_items.csv")
     itemset = ItemsetFlyweight(getItemsPrice(AMAZON_PATH + "/sample_items.csv"), topicModel, relation)
 
-    model = DiffusionModel( graph, itemset, threshold=10**(-5), name="amazon in dblp")
+    model = DiffusionModel(graph, itemset, threshold=10**(-5), name="amazon in dblp")
     seed_size = min(itemset.size, graph.number_of_nodes())
     seeds = model.selectSeeds(seed_size)
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
     algo = Algorithm(model, 20, depth=0)
 
-    start_time = time()
-    
     subgraph = graph.bfs_sampling(algo._max_expected_len, roots=model.getSeeds())
     for s in seeds:
         for attr, value in graph.nodes[s].items():
@@ -91,46 +89,47 @@ def main():
     print(len(subgraph.edges))
     algo.setGraph(subgraph)
 
-    for d in range(0,2):
+    for d in range(0,3):
         
+        start_time = time()
         algo._depth = d
         coupons = algo.genSelfCoupons()
-        print([str(c) for c in coupons])
-        # end_time = time()
+        # print([str(c) for c in coupons])
+        end_time = time()
 
-        # print("time:{}".format(end_time-start_time))
-        # model.setCoupons(coupons)
-        # tagger = Tagger()
-        # tagger.setNext(TagRevenue(graph, model.getSeeds(), algo._max_expected_len))
-        # tagger.setNext(TagActiveNode())
+        print("time:{}".format(end_time-start_time))
+        model.setCoupons(coupons)
+        tagger = Tagger()
+        tagger.setNext(TagRevenue(graph, model.getSeeds(), algo._max_expected_len))
+        tagger.setNext(TagActiveNode())
 
-        # print("Simulate Diffusion...")
-        # start = time()
-        # simulationTimes = 1
-        # algo.setGraph(graph)
-        # for i in range(simulationTimes):
-        #     g = model.getGraph()
-        #     g.initAttr()
-        #     model.diffusion(tagger)
-        # print(time()-start)
-        # performanceFile = r"./result/Self.txt"
-        # with open(performanceFile, "a") as record:
+        print("Simulate Diffusion...")
+        start = time()
+        simulationTimes = 2
+        algo.setGraph(graph)
+        for i in range(simulationTimes):
+            g = model.getGraph()
+            g.initAttr()
+            model.diffusion(tagger)
+        print(time()-start)
+        performanceFile = r"./result/Self.txt"
+        with open(performanceFile, "a") as record:
 
-        #     tagger["TagRevenue"].avg(simulationTimes)
-        #     tagger["TagActiveNode"].avg(simulationTimes)
+            tagger["TagRevenue"].avg(simulationTimes)
+            tagger["TagActiveNode"].avg(simulationTimes)
 
-        #     record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5}\n".format(
-        #         ctime(end_time),
-        #         (end_time - start_time),
-        #         tagger["TagRevenue"].amount(),
-        #         tagger["TagRevenue"].expected_amount(),
-        #         tagger["TagActiveNode"].amount(),
-        #         tagger["TagActiveNode"].expected_amount(),
-        #         ))
+            record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5}\n".format(
+                ctime(end_time),
+                (end_time - start_time),
+                tagger["TagRevenue"].amount(),
+                tagger["TagRevenue"].expected_amount(),
+                tagger["TagActiveNode"].amount(),
+                tagger["TagActiveNode"].expected_amount(),
+                ))
             
-        #     for c in coupons:
-        #         record.write(str(c) + "\n")
-        #     record.write("\n")
+            for c in coupons:
+                record.write(str(c) + "\n")
+            record.write("\n")
 if __name__ == '__main__':    
     
     # test()

@@ -10,6 +10,7 @@ from numpy import dot, sum
 from numpy.linalg import norm
 from collections.abc import Iterator
 import heapq
+from copy import deepcopy
 class ClusterGraph(SN_Graph):
     def __init__(self, cluster_topic:TopicModel|dict = None, located = True, **attr):
         '''
@@ -24,7 +25,7 @@ class ClusterGraph(SN_Graph):
             self._original_g, self._seeds = attr["graph"], attr["seeds"]
             self._compile(attr["theta"], attr["depth"])
     def _compile(self, theta: float, depth: int):
-        seeds_attr = [(str(seed), self._original_g.nodes[seed]) for seed in self._seeds] 
+        seeds_attr = [(str(seed), deepcopy(self._original_g.nodes[seed])) for seed in self._seeds] 
         self.add_nodes_from(seeds_attr)
         current_level = SimpleQueue()
         next_level = SimpleQueue()
@@ -73,14 +74,13 @@ class ClusterGraph(SN_Graph):
         for n in nodes:
             topic = self._original_g.nodes[n]["topic"]
             i = -1
-            min_cosine_sim = sys.float_info.max
-
+            max_cosine_sim = sys.float_info.min
             # find the cluster which the node belongs to, that the cosine simlarity is minimum
             for j in range(len(sum_cluster_vectors)):
                 avg_vector = [t/len(cluster_nodes[j]) for t in sum_cluster_vectors[j]]
                 cosine_sim = dot(topic, avg_vector)/(norm(topic)*norm(avg_vector))
-                if  cosine_sim < min_cosine_sim and cosine_sim >= theta:
-                    min_cosine_sim = cosine_sim
+                if  cosine_sim > max_cosine_sim and cosine_sim >= theta:
+                    max_cosine_sim = cosine_sim
                     i = j
 
             if i == -1:
