@@ -85,8 +85,7 @@ def main():
     for s in seeds:
         for attr, value in graph.nodes[s].items():
             subgraph.nodes[s][attr] = value
-    print(len(subgraph))
-    print(len(subgraph.edges))
+            
     algo.setGraph(subgraph)
 
     for d in range(0,3):

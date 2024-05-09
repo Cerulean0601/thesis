@@ -79,7 +79,7 @@ class TestAlgorithm(unittest.TestCase):
         nx.set_edge_attributes(self._graph, True, "is_active")
         self._model = DiffusionModel(self._graph, self._itemset)
         self._model._seeds = ["1"]
-        self._algo = Algorithm(self._model, 1, cluster_theta = 0.9, depth = 5)
+        self._algo = Algorithm(self._model, 1, cluster_theta = 0.9, depth = 4)
         return super().setUp()
     
     def test_locally_estimate(self):

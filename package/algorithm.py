@@ -177,12 +177,15 @@ class Algorithm:
 
                 accItemset = mainItemset["items"]
                 for disItemset in user_proxy.discoutableItems(cluster, accItemset):
-                    disItemset = self._itemset.difference(disItemset, accItemset)
                     discount = math.ceil(user_proxy._min_discount(cluster, accItemset, disItemset))
+                    disItemset = self._itemset.difference(disItemset, accItemset)
                     coupon = Coupon(accItemset.price, accItemset, discount, disItemset)
                     
                     start = time.time()
-                    margin_benfit = self._locally_estimate(level_clusters[i], level_clusters[min(i+1, leaf_level)], coupon)
+                    if i != leaf_level:
+                        margin_benfit = self._locally_estimate(level_clusters[i], level_clusters[min(i+1, leaf_level)], coupon)
+                    else:
+                        margin_benfit = self._locally_estimate(level_clusters[i], [], coupon)
                     # print("Local estimation for level {}: {}".format(i, time.time()-start))
                     if margin_benfit > max_local_benfit:
                         max_local_benfit = margin_benfit

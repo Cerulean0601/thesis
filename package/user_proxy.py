@@ -285,7 +285,7 @@ class UsersProxy():
     
     def _min_discount(self, user_id, mainItemset, itemset) -> float:
         itemset = self._itemset[itemset]
-        return itemset.price - (1/self._VP_ratio(user_id, mainItemset)) * dot(itemset.topic, self._graph.nodes[user_id]["topic"])
+        return itemset.price - (dot(itemset.topic, self._graph.nodes[user_id]["topic"])/self._VP_ratio(user_id, mainItemset))
     
     def discoutableItems(self, user_id, mainItemset: Itemset) -> Iterator[Itemset]:
         discoutable = []
