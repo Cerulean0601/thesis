@@ -230,7 +230,7 @@ class SN_Graph(nx.DiGraph):
             else:
                 length[node] = np.power(10, -max_len)
 
-        nx.set_edge_attributes(graph, {(u, v): {"weight":np.power(10, -max_len) if data["weight"] != 0 else 0} for u, v, data in graph.edges(data=True)})
+        nx.set_edge_attributes(graph, {(u, v): {"weight":np.power(10, -data["weight"]) if data["weight"] != 0 else 0} for u, v, data in graph.edges(data=True)})
         return length, path
     
     @staticmethod

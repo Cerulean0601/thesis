@@ -149,13 +149,15 @@ class TagAppending(TagImplement):
         return max(self.table[group], key=self.table[group].get)
 
 class TagRevenue(TagImplement):
-    def __init__(self, graph, seeds, max_expected_len=dict()):
+    def __init__(self, graph=None, seeds=None, max_expected_len=dict()):
         super().__init__()
         self._amount = 0
         self._expected_amount = 0
         self._seeds = seeds
         self._graph = graph
         if not bool(max_expected_len):
+            if not graph or not seeds:
+                raise ValueError("If max_expected_len is not set, graph and seeds should not be None.")
             self._compile_graph, self.max_expected_len = SN_Graph.compile_max_product_graph(graph, self._seeds)
         else:
             self.max_expected_len = max_expected_len
