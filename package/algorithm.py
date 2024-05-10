@@ -177,7 +177,8 @@ class Algorithm:
 
                 accItemset = mainItemset["items"]
                 for disItemset in user_proxy.discoutableItems(cluster, accItemset):
-                    discount = math.ceil(user_proxy._min_discount(cluster, accItemset, disItemset))
+                    discount = user_proxy._min_discount(cluster, accItemset, disItemset)
+                    discount = math.ceil(discount*100)/100 # 無條件進位到小數點第二位
                     disItemset = self._itemset.difference(disItemset, accItemset)
                     coupon = Coupon(accItemset.price, accItemset, discount, disItemset)
                     
