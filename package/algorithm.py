@@ -206,6 +206,9 @@ class Algorithm:
                     global_benfit = global_margin_benfit
                     coupons.append(coupon)
                     self._model.setCoupons(coupons)
+                
+                if len(coupons) >= self._limitNum:
+                    break
         self._model.setGraph(self._graph)
         return coupons
     
@@ -219,34 +222,24 @@ class Algorithm:
         tagger.setNext(TagRevenue(graph, self._model.getSeeds()))
         tagger.setNext(TagActiveNode())
         
-        bucket = dict()
+        # bucket = dict()
 
         for time in range(self.simulationTimes):
-            # initialize for Monte Carlo Simulation
-            graph.initAttr()
-            seeds = self._model.getSeeds()
-            if seeds:
-                model.setSeeds(seeds)
-                data = dict()
-                for seed in seeds:
-                    data[seed] = copy.deepcopy(self._model.getGraph().nodes[seed])
-                    data[seed]["adopted_records"] = list()
-                set_node_attributes(model.getGraph(), data)
-            
+            _reset_graph = copy.deepcopy(graph)
+            model.setGraph(_reset_graph)
             model.diffusion(tagger)
-
-            path = self._max_expected_path
-            for node, p in path.items():
-                src = p[0]
-                if src not in bucket:
-                    bucket[src] = dict()
+        #     path = self._max_expected_path
+        #     for node, p in path.items():
+        #         src = p[0]
+        #         if src not in bucket:
+        #             bucket[src] = dict()
                 
-                itemset = str(model._graph.nodes[node]["adopted_set"])
-                if itemset not in bucket[src]:
-                    bucket[src][itemset] = 1
-                else:
-                    bucket[src][itemset] += 1
-        self._bucket = bucket 
+        #         itemset = str(model._graph.nodes[node]["adopted_set"])
+        #         if itemset not in bucket[src]:
+        #             bucket[src][itemset] = 1
+        #         else:
+        #             bucket[src][itemset] += 1
+        # self._bucket = bucket 
 
         tagger["TagRevenue"].avg(self.simulationTimes)
         tagger["TagActiveNode"].avg(self.simulationTimes)
