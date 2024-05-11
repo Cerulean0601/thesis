@@ -127,7 +127,7 @@ class DiffusionModel():
         # push the node who will adopt items at this step
         adoptionQueue = Queue()
         for seed in self._seeds:
-            adoptionQueue.put((None, seed))
+            adoptionQueue.put((None, seed, 1))
 
        
         # push the node who have adopted items at this step
@@ -139,7 +139,7 @@ class DiffusionModel():
             
             # Loop until everyone check to decide whether adopt items
             while not adoptionQueue.empty():
-                src, det = adoptionQueue.get()
+                src, det, path_prob = adoptionQueue.get()
                 node_id = det
                 
                 trade = self._user_proxy.adopt(node_id)
@@ -169,18 +169,19 @@ class DiffusionModel():
                 trade["det"] = node_id
                 
                 if tagger != None:
-                    tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id], step=step)
+                    tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id], path_prob=path_prob)
 
-                propagatedQueue.put((node_id, trade["decision_items"]))
+                propagatedQueue.put((node_id, trade["decision_items"], path_prob))
                 adoptionQueue.task_done()
 
             step += 1
             while not propagatedQueue.empty():
-                node_id, tradeOff_items = propagatedQueue.get()
+                node_id, tradeOff_items, path_prob = propagatedQueue.get()
                 for out_neighbor in self._graph.neighbors(node_id):
                     is_activated  = self._propagate(node_id, out_neighbor, tradeOff_items)
                     if is_activated:
-                        adoptionQueue.put((node_id, out_neighbor))
+                        weight = self._graph.edges[node_id, out_neighbor]["weight"]
+                        adoptionQueue.put((node_id, out_neighbor, path_prob*weight))
                 propagatedQueue.task_done()
     
     def DeterministicDiffusion(self, depth:int, tagger=None):
@@ -237,7 +238,7 @@ class DiffusionModel():
                 
 
                 if tagger != None:
-                     tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id], step=step)
+                     tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id])
 
                 propagatedQueue.put((node_id, trade["decision_items"]))
                 adoptionQueue.task_done()

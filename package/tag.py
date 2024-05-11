@@ -149,26 +149,27 @@ class TagAppending(TagImplement):
         return max(self.table[group], key=self.table[group].get)
 
 class TagRevenue(TagImplement):
-    def __init__(self, graph=None, seeds=None, max_expected_len=dict()):
+    def __init__(self, graph=None, seeds=None):
         super().__init__()
         self._amount = 0
         self._expected_amount = 0
         self._seeds = seeds
         self._graph = graph
-        if not bool(max_expected_len):
-            if not graph or not seeds:
-                raise ValueError("If max_expected_len is not set, graph and seeds should not be None.")
-            self._compile_graph, self.max_expected_len = SN_Graph.compile_max_product_graph(graph, self._seeds)
-        else:
-            self.max_expected_len = max_expected_len
+        # if not bool(max_expected_len):
+        #     if not graph or not seeds:
+        #         raise ValueError("If max_expected_len is not set, graph and seeds should not be None.")
+        #     self._compile_graph, self.max_expected_len = SN_Graph.compile_max_product_graph(graph, self._seeds)
+        # else:
+        #     self.max_expected_len = max_expected_len
     def tag(self, params, **kwargs):
         self.setParams(params, **kwargs)
-        det = self._params["det"]
-        # price multi maximum expected probability
-        self._expected_amount += self._params["amount"]*self.max_expected_len[det]
+        # det = self._params["det"]
+
+        # price multi the probability which from seed to det through the path
+        self._expected_amount += self._params["amount"]*self._params["path_prob"]
         self._amount += self._params["amount"]
-        if "max_expected" not in self._params:
-            self._params["max_expected"] = self.max_expected_len
+        # if "max_expected" not in self._params:
+        #     self._params["max_expected"] = self.max_expected_len
         
         return self._params
 
@@ -191,14 +192,17 @@ class TagActiveNode(TagImplement):
 
     def tag(self, params, **kwargs):
         self.setParams(params, **kwargs)
-        if "max_expected" not in self._params:
-            raise ValueError("You should calculate maximum expected probability before counting active node.")
+        # if "max_expected" not in self._params:
+        #     raise ValueError("You should calculate maximum expected probability before counting active node.")
                              
         node = self._params["node"]
         node_id = self._params["node_id"]
+        prob = self._params["path_prob"]
         if len(node["adopted_records"]) == 1:
-            self._expected_amount += self._params["max_expected"][node_id]
-            self._distirbution[math.floor(self._params["max_expected"][node_id]*10)] += 1
+            # self._expected_amount += self._params["path_prob"][node_id]
+            # self._distirbution[math.floor(self._params["path_prob"][node_id]*10)] += 1
+            self._expected_amount += prob
+            self._distirbution[math.floor(prob*10)] += 1
             self._amount += 1
 
         return self._params

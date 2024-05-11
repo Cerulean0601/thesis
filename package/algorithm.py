@@ -210,7 +210,7 @@ class Algorithm:
         model = DiffusionModel(graph, self._model.getItemsetHandler(), coupon, self._model.getThreshold())
     
         tagger = Tagger()
-        tagger.setNext(TagRevenue(graph, self._model.getSeeds(), args[2]))
+        tagger.setNext(TagRevenue(graph, self._model.getSeeds()))
         tagger.setNext(TagActiveNode())
         
         bucket = dict()
@@ -255,9 +255,9 @@ class Algorithm:
         candidatedCoupons = candidatedCoupons[:]
 
         if len(candidatedCoupons) == 0:
-            return [], self._parallel((0,[],self._max_expected_len))
+            return [], self._parallel((0,[]))
         
-        coupons = [(i, [candidatedCoupons[i]], self._max_expected_len) for i in range(len(candidatedCoupons))]
+        coupons = [(i, [candidatedCoupons[i]]) for i in range(len(candidatedCoupons))]
         output = [] # the coupon set which is maximum revenue 
         revenue = 0
         tagger = None
