@@ -18,7 +18,7 @@ class Algorithm:
     def __init__(self, model, k, depth, cluster_theta=0.9, simulationTimes=1):
         self._model = model
         self._graph = model.getGraph()
-        self._reset_graph = copy.deepcopy(self._graph)
+        self._reset_graph = None # Cluster
         self._itemset = model.getItemsetHandler()
         self._max_expected = dict()
         self._limitNum = k
@@ -32,8 +32,14 @@ class Algorithm:
         self._graph = graph
         self._model.setGraph(graph)
 
+    def getGraph(self, ):
+        return self._graph
+
     def setLimitCoupon(self, k):
         self._limitNum = k
+
+    def resetGraph(self):
+        self.setGraph(copy.deepcopy(self._reset_graph))
 
     # def calculateMaxExpProbability(self):
     #     G = self._graph
@@ -188,7 +194,7 @@ class Algorithm:
                     else:
                         margin_benfit = self._locally_estimate(level_clusters[i], [], coupon)
                     # print("Local estimation for level {}: {}".format(i, time.time()-start))
-                    if margin_benfit > max_local_benfit:
+                    if margin_benfit >= max_local_benfit:
                         max_local_benfit = margin_benfit
                         max_local_margin_coupon = coupon
 
@@ -196,7 +202,7 @@ class Algorithm:
             if max_local_margin_coupon:
                 global_margin_benfit = self._globally_estimate(max_local_margin_coupon)
                 print("Global estimation for level: {}, {}".format(i, time.time()-start))
-                if global_margin_benfit > global_benfit:
+                if global_margin_benfit >= global_benfit:
                     global_benfit = global_margin_benfit
                     coupons.append(coupon)
                     self._model.setCoupons(coupons)
