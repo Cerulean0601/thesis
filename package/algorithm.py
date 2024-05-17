@@ -210,6 +210,7 @@ class Algorithm:
                 if len(coupons) >= self._limitNum:
                     break
         self._model.setGraph(self._graph)
+        self._model.setCoupons([])
         return coupons
     
     def _parallel(self, args):

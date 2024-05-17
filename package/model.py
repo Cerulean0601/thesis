@@ -126,9 +126,10 @@ class DiffusionModel():
 
         # push the node who will adopt items at this step
         adoptionQueue = Queue()
+        self.influencedNodes = list()
         for seed in self._seeds:
             adoptionQueue.put((None, seed, 1))
-
+            self.influencedNodes.append(seed)
        
         # push the node who have adopted items at this step
         propagatedQueue = Queue()
@@ -182,6 +183,7 @@ class DiffusionModel():
                     if is_activated:
                         weight = self._graph.edges[node_id, out_neighbor]["weight"]
                         adoptionQueue.put((node_id, out_neighbor, path_prob*weight))
+                        self.influencedNodes.append(out_neighbor)
                 propagatedQueue.task_done()
     
     def DeterministicDiffusion(self, depth:int, tagger=None):
