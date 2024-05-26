@@ -25,7 +25,8 @@ class DiffusionModel():
         self._itemset = ItemsetFlyweight(itemset["price"], itemset["topic"]) if type(itemset) == dict else itemset
         self._user_proxy = UsersProxy(self._graph, self._itemset, coupons, threshold)
         self._seeds = []
-            
+        self.influencedNodes = []
+        
     def getSeeds(self):
         return self._seeds
 
@@ -41,7 +42,13 @@ class DiffusionModel():
         
         self._user_proxy.setGraph(newGraph)
         self._graph = newGraph
-        
+    
+    def resetGraph(self):
+        for n in self.influencedNodes:
+            self._graph._initNode(n)
+            for out_neighbror in self._graph.neighbors(n):
+                self._graph._initEdge(n, out_neighbror)
+                
     def getItemsetHandler(self):
         return self._itemset
 
@@ -94,8 +101,13 @@ class DiffusionModel():
             if self._graph.convertDirected(): # 如果原圖是無向圖, 則此條邊的另一個方向也無法再使用
                 self._graph.edges[det, src]["is_tested"] = True
 
-            # the attribute "is_active" is for tracing case easily 
-            condition = edge["is_active"] if "is_active" in edge else uniform(0, 1) <= edge["weight"]
+            # the attribute "is_active" is for tracing case easily
+            if "is_active" in edge:
+                condition = edge["is_active"] 
+            else:
+                p = uniform(0, 1) 
+                condition = p <= edge["weight"]
+                
             if condition:
                 self._graph.nodes[det]["desired_set"] = self._itemset.union(
                     self._graph.nodes[det]["desired_set"],
