@@ -19,6 +19,22 @@
             "program": "${workspaceFolder}/Main.py",
             "console": "integratedTerminal",
             "justMyCode": false
-        }
+        },
+        {
+            "name": "Python: Greedy ",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/Greedy.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
+        {
+            "name": "Python: Greedy(Debug package)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/Greedy.py",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
     ]
 }

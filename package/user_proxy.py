@@ -1,14 +1,14 @@
 import sys
 from itertools import combinations
-from multiprocessing.pool import ThreadPool
+from multiprocessing.pool import Pool
 from numpy import dot
 from collections.abc import Iterator
+from line_profiler import profile
 
 from package.social_graph import SN_Graph
 from package.cluster_graph import ClusterGraph
 from package.itemset import ItemsetFlyweight, Itemset
 from package.coupon import Coupon
-
 class UsersProxy():
     '''
       使用者的購買行為，包含挑選主商品、額外購買、影響成功後的行為
@@ -160,6 +160,8 @@ class UsersProxy():
             amount -= dealDiscount
 
         return ratio*(sim/amount) if amount != 0 else sys.float_info.max
+    
+    @profile
     def _adoptAddtional(self, user_id, mainItemset):
         '''
             第二購買階段，即考量優惠方案的情況下
@@ -168,9 +170,8 @@ class UsersProxy():
                 mainItemset(Itemset): 第一購買階段決定的商品組合，此組合為考量的商品加上曾購買過的商品
         '''
         
-        def parallelAdopt(args):
+        def parallelAdopt(mainItemset, itemset_instance, coupon):
             result = None
-            mainItemset, itemset_instance, coupon = args[0], args[1], args[2]
 
             # X 必須超過滿額門檻
             diff_adopted = self._itemset.difference(itemset_instance, self._graph.nodes[user_id]["adopted_set"])
@@ -181,22 +182,19 @@ class UsersProxy():
                 result = {"items": itemset_instance, "VP": VP, "coupon": coupon}
 
             return result
-
-        pool = ThreadPool()
-        params = []
+        
+        result = []
         for itemsetObj in self._itemset:
             # 商品組合必須是主商品的超集
             if self._itemset.issuperset(itemsetObj, mainItemset):
                 for coupon in self._coupons:
                     #若主商品跟可累積商品的交集為空集合，則VP值等於0的情況下不需要考慮
                     if self._itemset.intersection(mainItemset, coupon.accItemset):
-                        params.append([mainItemset, itemsetObj, coupon])
-            
-        resultList = pool.map(parallelAdopt, params)
-        pool.close()
+                        result.append(parallelAdopt(mainItemset, itemsetObj, coupon))
+        
         maxVP = {"VP": sys.float_info.min}
 
-        for comp_result in resultList:
+        for comp_result in result:
             if comp_result != None and comp_result["VP"] > maxVP["VP"]:
                 maxVP = comp_result
 

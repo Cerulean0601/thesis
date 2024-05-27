@@ -213,11 +213,10 @@ class Algorithm:
         self._model.setCoupons([])
         return coupons
     
-    def _parallel(self, args):
-        coupon = args[1]
+    def _parallel(self, coupons):
         graph = copy.deepcopy(self._model.getGraph())
     
-        model = DiffusionModel(graph, self._model.getItemsetHandler(), coupon, self._model.getThreshold())
+        model = DiffusionModel(graph, self._model.getItemsetHandler(), coupons, self._model.getThreshold())
     
         tagger = Tagger()
         tagger.setNext(TagRevenue(graph, self._model.getSeeds()))
@@ -226,8 +225,7 @@ class Algorithm:
         # bucket = dict()
 
         for time in range(self.simulationTimes):
-            _reset_graph = copy.deepcopy(graph)
-            model.setGraph(_reset_graph)
+            model.resetGraph()
             model.diffusion(tagger)
         #     path = self._max_expected_path
         #     for node, p in path.items():
@@ -253,49 +251,47 @@ class Algorithm:
         '''
         
         candidatedCoupons = candidatedCoupons[:]
-
-        if len(candidatedCoupons) == 0:
-            return [], self._parallel((0,[]))
         
-        coupons = [(i, [candidatedCoupons[i]]) for i in range(len(candidatedCoupons))]
         output = [] # the coupon set which is maximum revenue 
-        revenue = 0
-        tagger = None
+        # tagger = self._parallel([])
+        # revenue = tagger["TagRevenue"].expected_amount()
+        revenue = 51.64475687155423
+        if len(candidatedCoupons) == 0 or self._limitNum == 0:
+            return [], tagger
+        
 
-        while len(candidatedCoupons) != 0 and len(output) < self._limitNum:
-            '''
-                1. Simulate with all candidated coupon
-                2. Get the coupon which can maximize revenue, and delete it from the candidatings
-                3. Concatenate all of the candidateings with the maximize revenue coupon
-            '''
+        coupons = [[candidatedCoupons[i]] for i in range(len(candidatedCoupons))]
+        with Pool(cpu_count()) as pool:
+            while len(candidatedCoupons) != 0 and len(output) < self._limitNum:
+                '''
+                    1. Simulate with all candidated coupon
+                    2. Get the coupon which can maximize revenue, and delete it from the candidatings
+                    3. Concatenate all of the candidateings with the maximize revenue coupon
+                '''
 
-            pool = Pool(cpu_count())
-            result = pool.map(self._parallel, coupons)
-            pool.close()
-            pool.join()
+                asyncresult = pool.map_async(self._parallel, coupons)
+                asyncresult.wait()
+                result = asyncresult.get()
 
-            maxMargin = 0
-            maxIndex = 0
-                
-            # find the maximum margin benfit of coupon
-            for i in range(len(result)):
-                if result[i]["TagRevenue"].expected_amount() > maxMargin:
-                    maxMargin = result[i]["TagRevenue"].expected_amount()
-                    maxIndex = i
-                elif result[i]["TagRevenue"].expected_amount() == maxMargin:
-                    if result[i]["TagActiveNode"].expected_amount() > result[maxIndex]["TagActiveNode"].expected_amount():
+                maxMargin = 0
+                maxIndex = 0
+                    
+                # find the maximum margin benfit of coupon
+                for i in range(len(result)):
+                    if result[i]["TagRevenue"].expected_amount() >= maxMargin:
+                        maxMargin = result[i]["TagRevenue"].expected_amount()
                         maxIndex = i
-            
-            # if these coupons are more benfit than current coupons, add it and update 
-            if maxMargin > revenue:
-                output = coupons[maxIndex][1]
-                revenue = maxMargin
-                tagger = result[maxIndex]
-                del candidatedCoupons[maxIndex]
-                coupons = [(i, coupons[maxIndex][1] + [candidatedCoupons[i]], self._max_expected_len) for i in range(len(candidatedCoupons))]
                 
-            else:
-                break
+                # if these coupons are more benfit than current coupons, add it and update 
+                if maxMargin > revenue:
+                    output = coupons[maxIndex]
+                    revenue = maxMargin
+                    tagger = result[maxIndex]
+                    del candidatedCoupons[maxIndex]
+                    coupons = [coupons[maxIndex] + [candidatedCoupons[i]] for i in range(len(candidatedCoupons))]
+                    
+                else:
+                    break
             
         return output, tagger
     

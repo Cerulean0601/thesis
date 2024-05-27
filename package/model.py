@@ -1,12 +1,5 @@
-from math import degrees
 from queue import Queue
-from random import uniform, random
-import logging
-import re
-from networkx import NetworkXError, write_gml, read_gml, set_node_attributes
-from os.path import exists
-from multiprocessing.pool import ThreadPool
-import pandas as pd
+from random import uniform
 
 # custom package
 from package.user_proxy import UsersProxy
@@ -14,7 +7,6 @@ from package.itemset import ItemsetFlyweight, Itemset
 from package.coupon import Coupon
 from package.social_graph import SN_Graph
 from package.cluster_graph import ClusterGraph
-from package.topic import TopicModel
 #from tag import Tagger, TagMainItemset, TagAppending
 
 class DiffusionModel():
@@ -25,7 +17,8 @@ class DiffusionModel():
         self._itemset = ItemsetFlyweight(itemset["price"], itemset["topic"]) if type(itemset) == dict else itemset
         self._user_proxy = UsersProxy(self._graph, self._itemset, coupons, threshold)
         self._seeds = []
-            
+        self.influencedNodes = []
+        
     def getSeeds(self):
         return self._seeds
 
@@ -41,7 +34,14 @@ class DiffusionModel():
         
         self._user_proxy.setGraph(newGraph)
         self._graph = newGraph
-        
+    
+    def resetGraph(self):
+        graph = self._graph
+        for u in self.influencedNodes:
+            graph._initNode(u)
+            for v in graph.neighbors(u):
+                graph._initEdge(u, v)
+
     def getItemsetHandler(self):
         return self._itemset
 
