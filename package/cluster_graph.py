@@ -1,5 +1,5 @@
 from package.social_graph import SN_Graph
-from package.utils import at_least_one_probability, expected_value
+from package.utils import at_least_one_probability, exactly_n_nodes
 from package.social_graph import SN_Graph
 from package.topic import TopicModel
 
@@ -59,8 +59,8 @@ class ClusterGraph(SN_Graph):
                                     topic = topic)
                     
                     if not self.has_edge(predecessor, node_name):
-                        weight = self._weighting(predecessor, node_name)
-                        self.add_edge(predecessor, node_name, weight=weight, is_tested=False, is_active=True)
+                        weight, exactly_n = self._weighting(predecessor, node_name)
+                        self.add_edge(predecessor, node_name, exactly_n=exactly_n, weight=weight, is_tested=False, is_active=True)
                         next_level.put(node_name)
 
             next_level, current_level = current_level, next_level
@@ -106,8 +106,11 @@ class ClusterGraph(SN_Graph):
             elif(len(predecessors) == 1):
                 weight = self._original_g.edges[list(predecessors)[0], child]["weight"]
             probabilities.append(weight)
+        
+        prob_distribution = exactly_n_nodes(probabilities)
+        max_prob = max(prob_distribution)
 
-        return expected_value(probabilities)
+        return max_prob, prob_distribution.index(max_prob)
     
     def _level_travesal(self, sources:list, depth) -> Iterator[list]:
 

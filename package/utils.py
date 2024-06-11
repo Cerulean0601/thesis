@@ -103,7 +103,7 @@ def at_least_one_probability(probabilities: list) -> float:
 
     return 1-pro
 
-def expected_value(probabilities:list) -> float:
+def exactly_n_nodes(probabilities:list) -> list:
     n = len(probabilities)
     temp = [0] * (n + 1)
     temp[0] = 1
@@ -117,5 +117,5 @@ def expected_value(probabilities:list) -> float:
             else:
                 temp[j] = prev[j] * (1 - probabilities[i - 1]) + prev[j-1] * probabilities[i - 1] 
 
-    expectation = sum(j * temp[j] for j in range(n + 1))
-    return expectation
+    # expectation = sum(j * temp[j] for j in range(n + 1))
+    return temp

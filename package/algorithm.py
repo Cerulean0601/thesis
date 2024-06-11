@@ -124,11 +124,11 @@ class Algorithm:
             for cluster in post_cluster:
                 pre_edges = list(filter(lambda x: (x[0] in clusters) and (x[0] in predecessor_adopt), graph.in_edges(nbunch=cluster, data="weight")))
                 if pre_edges:
-                    u,v,w = min(pre_edges, key=lambda x: x[2] )
+                    u,v,w = max(pre_edges, key=lambda x: x[2] )
                     self._model._propagate(u, v, predecessor_adopt[u])
                     mainItemset = user_proxy._adoptMainItemset(v)
                     if mainItemset:
-                        revenue += w*mainItemset["items"].price
+                        revenue += w*graph.edges[u,v]["exactly_n"]*mainItemset["items"].price
         
         user_proxy.setCoupons(coupons)
         return revenue
