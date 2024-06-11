@@ -105,13 +105,7 @@ class DiffusionModel():
                 
         return False
 
-
-    def diffusion(self, tagger=None):
-        '''
-            NOTE: 第一個seed會在買完後就傳遞影響力, 假如被傳遞的節點為第二個seed, 那後來seed的desired set
-            不只會包含他被分配到的商品, 也會包含seed影響成功的商品。似乎在t step所有被影響成功的節點買完後,
-            才開始傳遞影響力比較合理? 
-        '''
+    def diffusion(self, tagger, depth:int = None):
         if not self._seeds:
             k = min(self._itemset.size, self._graph.number_of_nodes())
 
@@ -130,14 +124,16 @@ class DiffusionModel():
         for seed in self._seeds:
             adoptionQueue.put((None, seed, 1))
             self.influencedNodes.append(seed)
-       
+
         # push the node who have adopted items at this step
         propagatedQueue = Queue()
 
         # Loop until no one adopted items at the previous step
         step = 0
         while not adoptionQueue.empty():
-            
+            if depth != None and step > depth:
+                break
+
             # Loop until everyone check to decide whether adopt items
             while not adoptionQueue.empty():
                 src, det, path_prob = adoptionQueue.get()
@@ -160,11 +156,6 @@ class DiffusionModel():
                         node: 節點
                     }
                 '''
-                
-                # logging.debug("Parameters of tagger------------------------------ ")
-                # for k, v in trade.items():
-                #     logging.debug("{0}: {1}".format(k, v))
-                # logging.debug("--------------------------------")
 
                 trade["src"] = src
                 trade["det"] = node_id
@@ -177,87 +168,20 @@ class DiffusionModel():
 
             step += 1
             while not propagatedQueue.empty():
-                node_id, tradeOff_items, path_prob = propagatedQueue.get()
+                node_id, decision_items, path_prob = propagatedQueue.get()
                 for out_neighbor in self._graph.neighbors(node_id):
-                    is_activated  = self._propagate(node_id, out_neighbor, tradeOff_items)
+                    is_activated  = self._propagate(node_id, out_neighbor, decision_items)
+                    if depth != None:
+                        self._graph.edges[node_id, out_neighbor]["is_tested"] = False
+                        if self._graph.convertDirected():
+                            self._graph.edges[det, src]["is_tested"] = False
+
                     if is_activated:
                         weight = self._graph.edges[node_id, out_neighbor]["weight"]
                         adoptionQueue.put((node_id, out_neighbor, path_prob*weight))
                         self.influencedNodes.append(out_neighbor)
                 propagatedQueue.task_done()
     
-    def DeterministicDiffusion(self, depth:int, tagger=None):
-
-        if not self._seeds:
-            k = min(self._itemset.size, self._graph.number_of_nodes())
-
-            # list of the seeds is sorted by out-degree.
-            self.selectSeeds(k)
-        
-        if self._graph.nodes[self._seeds[0]]["desired_set"] == None:
-            # List of single items.
-            items = [self._itemset[id] for id in list(self._itemset.PRICE.keys())]
-
-            self.allocate(self._seeds, items)
-
-        # push the node who will adopt items at this step
-        adoptionQueue = Queue()
-        for seed in self._seeds:
-            adoptionQueue.put((None, seed))
-        
-        # push the node who have adopted items at this step
-        propagatedQueue = Queue()
-
-        # Loop until no one adopted items at the previous step
-        step = 0
-        while not adoptionQueue.empty() and step <= depth:
-            
-            # Loop until everyone check to decide whether adopt items
-            while not adoptionQueue.empty():
-                src, det = adoptionQueue.get()
-                node_id = det
-                
-                trade = self._user_proxy.adopt(node_id)
-                
-                # 如果沒購買任何東西則跳過此使用者不做後續的流程
-                if trade == None:
-                    if "TagNonActive" in tagger:
-                        tagger["TagNonActive"].tag(node=self._graph.nodes[node_id])
-                    continue
-
-                '''
-                    taggerParam = {
-                        mainItemset: 主商品組合
-                        seed: 節點屬於哪個種子群 (Algorithm) 
-                        expectedProbability: 影響期望值
-                        coupon: 該節點使用哪個優惠方案
-                        node: 節點
-                    }
-                '''
-
-                trade["src"] = src
-                trade["det"] = node_id
-                
-
-                if tagger != None:
-                     tagger.tag(trade, node_id=node_id, node=self._graph.nodes[node_id])
-
-                propagatedQueue.put((node_id, trade["decision_items"]))
-                adoptionQueue.task_done()
-
-            step += 1
-            while not propagatedQueue.empty():
-                node_id, decision_items = propagatedQueue.get()
-                for out_neighbor in self._graph.neighbors(node_id):
-                    is_activated  = self._propagate(node_id, out_neighbor, decision_items)
-
-                    self._graph.edges[node_id, out_neighbor]["is_tested"] = False
-                    if self._graph.convertDirected():
-                        self._graph.edges[det, src]["is_tested"] = False
-
-                    if is_activated:
-                        adoptionQueue.put((node_id, out_neighbor))
-                propagatedQueue.task_done()
     # def save(self, dir_path):
 
     #     filename = dir_path + self.name

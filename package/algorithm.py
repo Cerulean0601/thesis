@@ -15,7 +15,7 @@ from package.coupon import Coupon
 from package.utils import dot
 
 class Algorithm:
-    def __init__(self, model, k, depth, cluster_theta=0.9, simulationTimes=1):
+    def __init__(self, model:DiffusionModel, k, depth, cluster_theta=0.9, simulationTimes=1):
         self._model = model
         self._graph = model.getGraph()
         self._reset_graph = None # Cluster
@@ -59,7 +59,7 @@ class Algorithm:
             min_amount = min([self._itemset[numbering].price for numbering in accItemset.numbering])
             for threshold in np.arange(min_amount, accItemset.price + price_step - 1, price_step):
                 for disItemset in self._itemset:
-                    for discount in np.arange(5 ,disItemset.price, price_step):
+                    for discount in np.arange(price_step ,disItemset.price, price_step):
                         coupons.append(Coupon(threshold, accItemset, discount, disItemset))
     
         return coupons
@@ -82,19 +82,21 @@ class Algorithm:
                 if discount <= 0 or discount > 1:
                     raise ValueError("the discount of coupon should be float type and positive.")
                 
-                coupon = Coupon(item.price, item, item.price*(1-discount), item)
+                coupon = Coupon(item.price, item, item.price*discount, item)
                 coupons.append(coupon)
         return coupons
 
-    def genFullItemCoupons(self, starThreshold:float, step:float, dicountPercentage:float) -> list:
-        if dicountPercentage <= 0 or dicountPercentage > 1:
-            raise ValueError("The discount percentage of coupon should be in (0,1]")
-        
+    def genFullItemCoupons(self, starThreshold:float, step:float, discountPercentage:list[float]) -> list:
+              
         coupons = []
         sumItemPrices = sum(self._itemset.PRICE.values())
         allItems = self._itemset[" ".join(self._itemset.PRICE.keys())]
         for account in np.arange(starThreshold, sumItemPrices, step):
-            coupons.append(Coupon(account, allItems, account*dicountPercentage, allItems))
+        
+            for p in discountPercentage:
+                if p <= 0 or p > 1:
+                    raise ValueError("The discount percentage of coupon should be in (0,1]")
+                coupons.append(Coupon(account, allItems, account*p, allItems))
         
         return coupons
     def _locally_estimate(self, clusters:list, post_cluster:list, coupon:Coupon = None) -> float:
@@ -143,7 +145,7 @@ class Algorithm:
 
         tagger = Tagger()
         tagger.setNext(TagEstimatedRevenue(graph=self._model.getGraph()))
-        self._model.DeterministicDiffusion(self._depth, tagger)
+        self._model.diffusion(tagger, self._depth)
 
         self._model.setCoupons(coupons)
         self._model.setGraph(graph)
@@ -213,18 +215,20 @@ class Algorithm:
         self._model.setCoupons([])
         return coupons
     
-    def _parallel(self, coupons):
+    def _parallel(self, index, coupons):
+        
+        print("{}: {}".format(time.ctime(), index))
         graph = copy.deepcopy(self._model.getGraph())
     
         model = DiffusionModel(graph, self._model.getItemsetHandler(), coupons, self._model.getThreshold())
     
         tagger = Tagger()
-        tagger.setNext(TagRevenue(graph, self._model.getSeeds()))
+        tagger.setNext(TagRevenue())
         tagger.setNext(TagActiveNode())
         
         # bucket = dict()
 
-        for time in range(self.simulationTimes):
+        for _ in range(self.simulationTimes):
             model.resetGraph()
             model.diffusion(tagger)
         #     path = self._max_expected_path
@@ -252,15 +256,16 @@ class Algorithm:
         
         candidatedCoupons = candidatedCoupons[:]
         
-        output = [] # the coupon set which is maximum revenue 
-        # tagger = self._parallel([])
-        # revenue = tagger["TagRevenue"].expected_amount()
-        revenue = 51.64475687155423
+         
+        tagger = self._parallel(-1, [])
+
         if len(candidatedCoupons) == 0 or self._limitNum == 0:
             return [], tagger
         
+        coupons = [(i, [candidatedCoupons[i]]) for i in range(len(candidatedCoupons))]
+        revenue = tagger["TagRevenue"].expected_amount()
+        output = [] # the coupon set which is maximum revenue
 
-        coupons = [[candidatedCoupons[i]] for i in range(len(candidatedCoupons))]
         with Pool(cpu_count()) as pool:
             while len(candidatedCoupons) != 0 and len(output) < self._limitNum:
                 '''
@@ -268,10 +273,8 @@ class Algorithm:
                     2. Get the coupon which can maximize revenue, and delete it from the candidatings
                     3. Concatenate all of the candidateings with the maximize revenue coupon
                 '''
-
-                asyncresult = pool.map_async(self._parallel, coupons)
-                asyncresult.wait()
-                result = asyncresult.get()
+                print("Number of candidated coupons: {}".format(len(coupons)))
+                result = pool.starmap(self._parallel, coupons)
 
                 maxMargin = 0
                 maxIndex = 0
@@ -284,31 +287,32 @@ class Algorithm:
                 
                 # if these coupons are more benfit than current coupons, add it and update 
                 if maxMargin > revenue:
-                    output = coupons[maxIndex]
+                    output = coupons[maxIndex][1]
                     revenue = maxMargin
                     tagger = result[maxIndex]
                     del candidatedCoupons[maxIndex]
-                    coupons = [coupons[maxIndex] + [candidatedCoupons[i]] for i in range(len(candidatedCoupons))]
+                    coupons = [(i, coupons[maxIndex][1] + [candidatedCoupons[i]]) for i in range(len(candidatedCoupons))]
                     
                 else:
                     break
             
         return output, tagger
     
-    def optimalAlgo(self, candidatedCoupons:list):
+    def optimalAlgo(self, candidatedCoupons:list, num_coupons:int):
 
+        if num_coupons > self._limitNum or num_coupons > len(candidatedCoupons):
+            raise ValueError("The size of coupon set should be less K or the number of candidated coupons.")
+        
         pool = Pool(cpu_count())
         candidatedCoupons = candidatedCoupons[:]
-        couponSize = min(len(candidatedCoupons), self._limitNum)
 
         couponsPowerset = []
         i = 0
-        for size in range(couponSize + 1): 
-            for comb in combinations(candidatedCoupons, size):
-                couponsPowerset.append((i, list(comb), self._max_expected_len))
-                i += 1
+        for comb in combinations(candidatedCoupons, num_coupons):
+            couponsPowerset.append((i, list(comb)))
+            i += 1
 
-        result = pool.map(self._parallel, couponsPowerset)
+        result = pool.starmap(self._parallel, couponsPowerset)
         
         pool.close()
         pool.join()

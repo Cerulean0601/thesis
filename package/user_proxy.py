@@ -3,7 +3,6 @@ from itertools import combinations
 from multiprocessing.pool import Pool
 from numpy import dot
 from collections.abc import Iterator
-from line_profiler import profile
 
 from package.social_graph import SN_Graph
 from package.cluster_graph import ClusterGraph
@@ -161,7 +160,6 @@ class UsersProxy():
 
         return ratio*(sim/amount) if amount != 0 else sys.float_info.max
     
-    @profile
     def _adoptAddtional(self, user_id, mainItemset):
         '''
             第二購買階段，即考量優惠方案的情況下

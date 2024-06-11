@@ -149,27 +149,15 @@ class TagAppending(TagImplement):
         return max(self.table[group], key=self.table[group].get)
 
 class TagRevenue(TagImplement):
-    def __init__(self, graph=None, seeds=None):
+    def __init__(self):
         super().__init__()
         self._amount = 0
         self._expected_amount = 0
-        self._seeds = seeds
-        self._graph = graph
-        # if not bool(max_expected_len):
-        #     if not graph or not seeds:
-        #         raise ValueError("If max_expected_len is not set, graph and seeds should not be None.")
-        #     self._compile_graph, self.max_expected_len = SN_Graph.compile_max_product_graph(graph, self._seeds)
-        # else:
-        #     self.max_expected_len = max_expected_len
+
     def tag(self, params, **kwargs):
         self.setParams(params, **kwargs)
-        # det = self._params["det"]
-
-        # price multi the probability which from seed to det through the path
         self._expected_amount += self._params["amount"]*self._params["path_prob"]
         self._amount += self._params["amount"]
-        # if "max_expected" not in self._params:
-        #     self._params["max_expected"] = self.max_expected_len
         
         return self._params
 
@@ -239,7 +227,7 @@ class TagEstimatedRevenue(TagImplement):
         if src is None:
             self._revenue += self._params["amount"]
         else:
-            self._revenue += self._graph.edges[src, det]["weight"] * self._params["amount"]
+            self._revenue += self._params["path_prob"] * self._graph.edges[src, det]["exactly_n"] * self._params["amount"]
 
         return self._params
     

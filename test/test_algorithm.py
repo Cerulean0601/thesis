@@ -5,7 +5,6 @@ from package.algorithm import Algorithm
 from package.itemset import ItemRelation, ItemsetFlyweight
 from package.model import DiffusionModel
 from package.coupon import Coupon
-from package.tag import TagRevenue, TagActiveNode
 
 import unittest
 import pandas as pd
