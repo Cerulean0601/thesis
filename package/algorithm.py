@@ -206,7 +206,7 @@ class Algorithm:
                 print("Global estimation for level: {}, {}".format(i, time.time()-start))
                 if global_margin_benfit >= global_benfit:
                     global_benfit = global_margin_benfit
-                    coupons.append(coupon)
+                    coupons.append(max_local_margin_coupon)
                     self._model.setCoupons(coupons)
                 
                 if len(coupons) >= self._limitNum:
