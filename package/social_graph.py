@@ -1,5 +1,6 @@
 import networkx as nx
 import queue
+from collections import deque
 import random
 import numpy as np
 from copy import deepcopy
@@ -75,7 +76,7 @@ class SN_Graph(nx.DiGraph):
         print("Done")
         return graph
         
-    def bfs_sampling(self, max_expected_len:dict, roots:list = [], threshold=10**(-3)):
+    def bfs_pruning(self, max_expected_len:dict, roots:list = [], threshold=10**(-3)):
 
         if len(list(self.nodes)) <= 0:
             raise Exception("The number of nodes in the original graph is zero or negative.")
@@ -114,7 +115,33 @@ class SN_Graph(nx.DiGraph):
         subgraph.initAttr()
         nx.set_edge_attributes(self, False, "is_sample")
         return subgraph
+    
+    def bfs_sampling(self, roots:list[str]):
+        q = deque(roots)
 
+        subgraph = SN_Graph(self.topic, self.convertDirected())
+        visited_node = set()
+
+        while len(q) != 0:
+            node = q.popleft()
+            if node in visited_node:
+                continue
+
+            if not subgraph.has_node(node):
+                subgraph.add_node(node, **deepcopy(self.nodes[node]))
+
+            visited_node.add(node)
+            for out_neighbor in self.neighbors(node):
+                if random.random() <= self.edges[node, out_neighbor]["weight"]:
+                    if not subgraph.has_node(out_neighbor):
+                        # node 屬性包含 mutable 資料型態，所以需要深度拷貝
+                        subgraph.add_node(out_neighbor, **deepcopy(self.nodes[out_neighbor])) 
+                    subgraph.add_edge(node, out_neighbor, **self.edges[node, out_neighbor])
+                    
+                    if out_neighbor not in visited_node:
+                        q.append(out_neighbor)
+
+        return subgraph
     @staticmethod
     def transform(G, nodeTopic=None):
         '''

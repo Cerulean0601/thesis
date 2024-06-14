@@ -71,6 +71,8 @@ RELATION = pd.DataFrame.from_dict({
             })
 
 GRAPH = CLUB_PATH
+# TODO: 子圖數量從200,500,1000試試看
+NUM_SUBGRAPH = 200
 def main():
     items = read_items(AMAZON_PATH + "/sample_items.csv")
 
@@ -88,58 +90,49 @@ def main():
     seeds = model.selectSeeds(seed_size)
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
     algo = Algorithm(model, k=20, depth=4, cluster_theta=0.4)
-
-    # subgraph = graph.bfs_sampling(algo._max_expected_len, roots=model.getSeeds(), threshold=10**(-5))
-    # for s in seeds:
-    #     for attr, value in graph.nodes[s].items():
-    #         subgraph.nodes[s][attr] = value
-
+        
     pool = Pool()
-    for depth in range(4,5):
+    for depth in range(0,3):
         algo._depth = depth
         theta = np.arange(0, 1.1, 0.1)
         for cluster_theta in theta:
             algo._cluster_theta = cluster_theta
-            start_time = time()
 
-            algo.setGraph(deepcopy(graph))
-            coupons = algo.genSelfCoupons()
+            coupons_each_subgraph = list()
+            start_time = time()
+            for i in range(NUM_SUBGRAPH):
+                subgraph = graph.bfs_sampling(roots=model.getSeeds())
+                algo.setGraph(subgraph)
+                coupons = algo.genSelfCoupons()
+                coupons_each_subgraph.append(coupons)
             end_time = time()
 
             print("time:{}".format(end_time-start_time))
-            model.setCoupons(coupons)
 
             print("Simulate Diffusion...")
             start = time()
             algo.setGraph(graph)
-
-            g = model.getGraph()
+            
             tagger = Tagger()
             tagger.setNext(TagRevenue())
             tagger.setNext(TagActiveNode())
             
-            times = 10000
-            algo.simulationTimes = times//cpu_count()
-            result = pool.starmap(algo._parallel, [(i, coupons) for i in range(cpu_count())])
-            for t in result:
-                tagger["TagRevenue"]._amount += t["TagRevenue"]._amount
-                tagger["TagRevenue"]._expected_amount += t["TagRevenue"]._expected_amount
-                tagger["TagActiveNode"]._amount += t["TagActiveNode"]._amount
-                tagger["TagActiveNode"]._expected_amount += t["TagActiveNode"]._expected_amount
+            for coupons in coupons_each_subgraph:
+                model.setCoupons(coupons)
+                times = 10000
+                algo.simulationTimes = times//cpu_count()
+                result = pool.starmap(algo._parallel, [(i, coupons) for i in range(cpu_count())])
+                for t in result:
+                    tagger["TagRevenue"]._amount += t["TagRevenue"]._amount
+                    tagger["TagRevenue"]._expected_amount += t["TagRevenue"]._expected_amount
+                    tagger["TagActiveNode"]._amount += t["TagActiveNode"]._amount
+                    tagger["TagActiveNode"]._expected_amount += t["TagActiveNode"]._expected_amount
 
-            # g = model.getGraph()
-            # reset_graph = deepcopy(g)
-            # nx.set_edge_attributes(g, True, "is_active")
-            # model.diffusion(tagger)
-            # subgraph = reset_graph
+            tagger["TagRevenue"].avg(cpu_count()*NUM_SUBGRAPH)
+            tagger["TagActiveNode"].avg(cpu_count()*NUM_SUBGRAPH)
 
-            print(time()-start)
             performanceFile = r"./result/depth_" + str(depth) + ".txt"
             with open(performanceFile, "a") as record:
-
-                tagger["TagRevenue"].avg(cpu_count())
-                tagger["TagActiveNode"].avg(cpu_count())
-
                 record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},cluster_theta={6}\n".format(
                     ctime(end_time),
                     (end_time - start_time),
