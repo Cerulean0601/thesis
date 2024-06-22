@@ -76,7 +76,16 @@ def main():
     graph = SN_Graph.construct(GRAPH + "/edges", topicModel, located=False)
     relation = ItemRelation()
     relation.construct(AMAZON_PATH + "/sample_items.csv")
-    itemset = ItemsetFlyweight(getItemsPrice(AMAZON_PATH + "/sample_items.csv"), topicModel, relation)
+
+    # 選擇可以產生coupon的商品
+    for_coupon_items = []
+    for asin, attr in items.items():
+        if attr["for_coupon"] == '1':
+            for_coupon_items.append(asin)
+    itemset = ItemsetFlyweight(for_coupon_items=for_coupon_items,
+                               prices=getItemsPrice(AMAZON_PATH + "/sample_items.csv"), 
+                               topic=topicModel, 
+                               relation=relation)
 
     model = DiffusionModel( graph, itemset, threshold=10**(-5), name="amazon in dblp")
     seed_size = min(itemset.size, graph.number_of_nodes())
@@ -84,40 +93,35 @@ def main():
 
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
 
-    simluation_times = 1000
-    algo = Algorithm(model, 0, depth=3, simulationTimes = simluation_times)
+    simluation_times = 10000
+    algo = Algorithm(model, depth=3, simulationTimes = simluation_times)
 
-    performanceFile = r"./result/discount_items.txt"
-    # candidatedCoupons = algo.genAllCoupons(5)
+    performanceFile = r"./result/greedy.txt"
+    candidatedCoupons = algo.genAllCoupons(5)
     # candidatedCoupons = algo.genDiscountItemCoupons(list(np.arange(0.1, 1, 0.1)))
-    candidatedCoupons = algo.genFullItemCoupons(min(itemset.PRICE.values()), 5, list(np.arange(0.1, 1, 0.1)))
-    for k in range(1, 5):
+    # candidatedCoupons = algo.genFullItemCoupons(min(itemset.PRICE.values()), 5, list(np.arange(0.1, 1, 0.1)))
 
-      algo.setLimitCoupon(k)
-      start_time = time()
+    generator = algo.simulation(candidatedCoupons)
+    start_time = time()
+    
+    for outputCoupons, tagger in generator:
+        end_time = time()
 
-      if k == 0:
-          outputCoupons, tagger = algo.simulation([])
-      else:
-          outputCoupons, tagger = algo.simulation(candidatedCoupons)
+        with open(performanceFile, "a") as record:
 
-      end_time = time()
+            record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},k={6}\n".format(
+                ctime(end_time),
+                (end_time - start_time),
+                tagger["TagRevenue"].amount(),
+                tagger["TagRevenue"].expected_amount(),
+                tagger["TagActiveNode"].amount(),
+                tagger["TagActiveNode"].expected_amount(),
+                k,
+                ))
 
-      with open(performanceFile, "a") as record:
-
-          record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},k={6}\n".format(
-              ctime(end_time),
-              (end_time - start_time),
-              tagger["TagRevenue"].amount(),
-              tagger["TagRevenue"].expected_amount(),
-              tagger["TagActiveNode"].amount(),
-              tagger["TagActiveNode"].expected_amount(),
-              k,
-              ))
-
-          for c in outputCoupons:
-              record.write(str(c) + "\n")
-          record.write("\n")
+            for c in outputCoupons:
+                record.write(str(c) + "\n")
+            record.write("\n")
 
 if __name__ == '__main__':
 

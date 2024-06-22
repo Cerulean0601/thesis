@@ -221,13 +221,7 @@ class TagEstimatedRevenue(TagImplement):
         if not isinstance(self._graph, ClusterGraph):
             raise TypeError("The type of graph is not ClusterGraph.")
         
-        src, det = self._params["src"], self._params["det"]
-        
-        # If src is none, det is root
-        if src is None:
-            self._revenue += self._params["amount"]
-        else:
-            self._revenue += self._params["path_prob"] * self._graph.edges[src, det]["exactly_n"] * self._params["amount"]
+        self._revenue += self._params["amount"]
 
         return self._params
     

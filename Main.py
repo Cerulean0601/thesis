@@ -70,7 +70,7 @@ RELATION = pd.DataFrame.from_dict({
             }
             })
 
-GRAPH = CLUB_PATH
+GRAPH = FACEBOOK_PATH
 # TODO: 子圖數量從200,500,1000試試看
 NUM_SUBGRAPH = 200
 def main():
@@ -90,11 +90,13 @@ def main():
     seeds = model.selectSeeds(seed_size)
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
     algo = Algorithm(model, k=20, depth=4, cluster_theta=0.4)
-        
-    pool = Pool()
-    for depth in range(0,3):
+    
+    NUM_USAGE_CPU = (cpu_count()*2)//3
+    pool = Pool(NUM_USAGE_CPU)
+    for depth in range(1,3):
         algo._depth = depth
-        theta = np.arange(0, 1.1, 0.1)
+        # theta = np.arange(0, 1.1, 0.1)
+        theta = [0,0.2,0.4,0.6,0.8,1]
         for cluster_theta in theta:
             algo._cluster_theta = cluster_theta
 
@@ -117,19 +119,19 @@ def main():
             tagger.setNext(TagRevenue())
             tagger.setNext(TagActiveNode())
             
-            for coupons in coupons_each_subgraph:
-                model.setCoupons(coupons)
-                times = 10000
-                algo.simulationTimes = times//cpu_count()
-                result = pool.starmap(algo._parallel, [(i, coupons) for i in range(cpu_count())])
-                for t in result:
-                    tagger["TagRevenue"]._amount += t["TagRevenue"]._amount
-                    tagger["TagRevenue"]._expected_amount += t["TagRevenue"]._expected_amount
-                    tagger["TagActiveNode"]._amount += t["TagActiveNode"]._amount
-                    tagger["TagActiveNode"]._expected_amount += t["TagActiveNode"]._expected_amount
+            # for coupons in coupons_each_subgraph:
+            model.setCoupons(coupons)
+            times = 1000
+            algo.simulationTimes = times
+            result = pool.starmap(algo._parallel, [(i, coupons_each_subgraph[i]) for i in range(NUM_SUBGRAPH)])
+            for t in result:
+                tagger["TagRevenue"]._amount += t["TagRevenue"]._amount
+                tagger["TagRevenue"]._expected_amount += t["TagRevenue"]._expected_amount
+                tagger["TagActiveNode"]._amount += t["TagActiveNode"]._amount
+                tagger["TagActiveNode"]._expected_amount += t["TagActiveNode"]._expected_amount
 
-            tagger["TagRevenue"].avg(cpu_count()*NUM_SUBGRAPH)
-            tagger["TagActiveNode"].avg(cpu_count()*NUM_SUBGRAPH)
+            tagger["TagRevenue"].avg(NUM_SUBGRAPH)
+            tagger["TagActiveNode"].avg(NUM_SUBGRAPH)
 
             performanceFile = r"./result/depth_" + str(depth) + ".txt"
             with open(performanceFile, "a") as record:

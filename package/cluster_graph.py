@@ -11,6 +11,42 @@ from numpy.linalg import norm
 from collections.abc import Iterator
 import heapq
 from copy import deepcopy
+
+class EdgeWeight:
+    def weighting(self):
+        raise NotImplementedError("This method is not implemented.")
+
+class TwoHopWeight(EdgeWeight):
+    '''
+    References:
+    Purohit, M., Prakash, B. A., Kang, C., Zhang, Y., & Subrahmanian, V. S. (2014, August). 
+    Fast influence-based coarsening for large networks. 
+    In Proceedings of the 20th ACM SIGKDD international conference on Knowledge discovery and data mining (pp. 1296-1305).
+    '''
+    def __init__(self, graph) -> None:
+        self._graph = graph
+
+    def _weighting(self, src, det, src_neighbors:set, det_neighbors:set, superNode):
+        
+        update_attr = dict()
+        beta_1 = self._graph.edges[src, det]["weight"] if self._graph.has_edge(src, det) else 0
+        beta_2 = self._graph.edges[det, src]["weight"] if self._graph.has_edge(det, src) else 0
+
+        for src_neighbor in src_neighbors:
+            update_attr[src_neighbor, superNode] = dict()
+            if src_neighbor in det_neighbors:
+                update_attr[src_neighbor, superNode]["weight"] = ((1+beta_1)*self._graph.edges[src_neighbor, src] + (1+beta_2)*self._graph.edges[src_neighbor, det])/4
+            else:
+                update_attr[src_neighbor, superNode]["weight"] = (1+beta_1)*self._graph.edges[src_neighbor, src]/2
+        
+        for det_neighbor in det_neighbors:
+            update_attr[det_neighbor, superNode] = dict()
+            if det_neighbor not in src_neighbors:
+                update_attr[det_neighbor, superNode] = (1+beta_2)*self._graph.edges[det_neighbor, det]/2
+        
+    def weighting(self, u, v):
+        # u 的 neighbors必須排除 v ， v的也必須排除u
+        pass
 class ClusterGraph(SN_Graph):
     def __init__(self, cluster_topic:TopicModel|dict = None, located = True, **attr):
         '''
@@ -24,6 +60,7 @@ class ClusterGraph(SN_Graph):
         if "graph" in attr:
             self._original_g, self._seeds = attr["graph"], attr["seeds"]
             self._compile(attr["theta"], attr["depth"])
+
     def _compile(self, theta: float, depth: int):
         seeds_attr = [(str(seed), deepcopy(self._original_g.nodes[seed])) for seed in self._seeds] 
         self.add_nodes_from(seeds_attr)
@@ -111,8 +148,10 @@ class ClusterGraph(SN_Graph):
         max_prob = max(prob_distribution)
 
         return max_prob, prob_distribution.index(max_prob)
+
+        # return sum(probabilities)/len(probabilities), len(child)
     
-    def _level_travesal(self, sources:list, depth) -> Iterator[list]:
+    def level_travesal(self, sources:list, depth) -> Iterator[list]:
 
         yield sources
 

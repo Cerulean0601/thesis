@@ -61,13 +61,12 @@ def read_items(filename): # pragma: no cover
     with open(filename) as file:
         next(file)
         for line in file:
-            asin, also_view, also_buy, category, price = line.split(",")
+            asin, also_view, also_buy, for_coupon, price = line.split(",")
             dataset[asin] = dict()
             dataset[asin]["also_view"] = also_view.split(" ")
             dataset[asin]["also_buy"] = also_buy.split(" ")
-            dataset[asin]["category"] = category.split(" ")
             dataset[asin]["price"] = float(price)
-
+            dataset[asin]["for_coupon"] = for_coupon
     return dataset
 
 def dot(a:list, b:list):

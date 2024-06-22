@@ -15,13 +15,14 @@ from package.coupon import Coupon
 from package.utils import dot
 
 class Algorithm:
-    def __init__(self, model:DiffusionModel, k, depth, cluster_theta=0.9, simulationTimes=1):
+    def __init__(self, model:DiffusionModel, depth, cluster_theta=0.9, simulationTimes=1, num_sampledGraph=50):
         self._model = model
         self._graph = model.getGraph()
         self._reset_graph = None # Cluster
         self._itemset = model.getItemsetHandler()
         self._max_expected = dict()
-        self._limitNum = k
+        # self._limitNum = k
+        self._num_sampledGraph = num_sampledGraph
         self._depth = depth
         self._cluster_theta = cluster_theta
         if type(self._graph) == SN_Graph:
@@ -35,8 +36,8 @@ class Algorithm:
     def getGraph(self, ):
         return self._graph
 
-    def setLimitCoupon(self, k):
-        self._limitNum = k
+    # def setLimitCoupon(self, k):
+    #     self._limitNum = k
 
     def resetGraph(self):
         self.setGraph(copy.deepcopy(self._reset_graph))
@@ -128,7 +129,7 @@ class Algorithm:
                     self._model._propagate(u, v, predecessor_adopt[u])
                     mainItemset = user_proxy._adoptMainItemset(v)
                     if mainItemset:
-                        revenue += w*graph.edges[u,v]["exactly_n"]*mainItemset["items"].price
+                        revenue += mainItemset["items"].price
         
         user_proxy.setCoupons(coupons)
         return revenue
@@ -150,54 +151,94 @@ class Algorithm:
         self._model.setCoupons(coupons)
         self._model.setGraph(graph)
         return tagger["TagEstimatedRevenue"].amount()
+    
     def genSelfCoupons(self):
         print("Clustering the graph...")
         start = time.time()
-        cluster_graph = ClusterGraph(graph = self._graph, 
-                                    seeds = self._model.getSeeds(),
-                                    located = False,
-                                    depth = self._depth,
-                                    theta = self._cluster_theta)
-        print("Execution time for clustering graph: {}".format(time.time() - start))
 
-        self._model.setGraph(cluster_graph)
-        self._reset_graph = copy.deepcopy(cluster_graph)
+        cluster_subgraphs = []
+        for i in range(self._num_sampledGraph):
+            subgraph = self._graph.bfs_sampling(roots=self._model.getSeeds())
+            cluster_graph = ClusterGraph(graph = subgraph, 
+                                        seeds = self._model.getSeeds(),
+                                        located = False,
+                                        depth = self._depth,
+                                        theta = self._cluster_theta)
+            cluster_subgraphs.append(cluster_graph)
+
+        print("Execution time for clustering graph: {}".format(time.time() - start))
+        self.setGraph(cluster_graph)
 
         user_proxy = self._model.getUserProxy()
         coupons = []
 
-        level_clusters = list(cluster_graph._level_travesal(self._model.getSeeds(), self._depth))
-        leaf_level = len(level_clusters)-1
         global_benfit = self._globally_estimate([])
-        for i in range(leaf_level+1):
+        level_generators = [g.level_travesal(self._model.getSeeds(), self._depth) for g in cluster_subgraphs]
+        current_level_superNodes = []
+        # 所有子圖的種子節點
+        for generator in level_generators:
+            current_level_superNodes.append(next(generator))
+
+        for i in range(self._depth):
             print("Level: {}".format(i))
 
-            if i != leaf_level:
-                max_local_benfit = self._locally_estimate(level_clusters[i], level_clusters[min(i+1, leaf_level)])
-            else:
-                max_local_benfit = self._locally_estimate(level_clusters[i], [])
+            # 計算當前層數在沒有coupon的情況下，每張聚合子圖的平均收益
+            max_local_benfit = 0
+            next_level_superNodes = []
+            for generator in level_generators:
+                next_level_superNodes.append(next(generator))
+
+            for subgraph in cluster_subgraphs:
+                if i != self._depth:
+                    max_local_benfit += self._locally_estimate(current_level_superNodes, next_level_superNodes)
+                else:
+                    max_local_benfit += self._locally_estimate(current_level_superNodes, [])
+            max_local_benfit /= len(cluster_subgraphs)
+
+            # TODO: 將相似的主商品聚合成一個super主商品，並且merge相似的super node變成super super node
+            # BUG: 當我針對每個super node產生主商品時，有可能不在可以產生coupon的商品範圍內I_coupon
+            # 將每個super node和相對應的主商品組成一組一組的tuple
+
             max_local_margin_coupon = None
+            superNodeItemsetTuples = []
+            for i in range(len(current_level_superNodes)):
+                self.setGraph(cluster_subgraphs[i]) # NOTE: 檢查model有沒有儲存或異動跟圖狀態有關的變數(節點、邊之類的)
+                super_nodes_same_graph = current_level_superNodes[i]
+                for super_nodes in super_nodes_same_graph:
+                    mainItemset = user_proxy._adoptMainItemset(super_nodes)
+                    if not mainItemset: # TODO: 如果沒有商品在I_coupon裡面，可以直接跳過
+                        continue
+                    superNodeItemsetTuples.append(tuple(super_nodes, mainItemset))
 
-            for cluster in level_clusters[i]:
-                mainItemset = user_proxy._adoptMainItemset(cluster)
-                if not mainItemset: 
-                    continue
+                # TODO: clustering main itemset and then clustering super nodes
+                superMainItemset = None
+                ultraNode = None
+                accItemset = superMainItemset
 
-                accItemset = mainItemset["items"]
-                for disItemset in user_proxy.discoutableItems(cluster, accItemset):
-                    discount = user_proxy._min_discount(cluster, accItemset, disItemset)
+                # NOTE: 這裡是work around的方法。ultra node 是多個super node聚合在一起，所以不會存在在子圖裡，只能先透過新增節點的方式。
+                self._graph.add_node(ultraNode, topic, desired_set=None, adopted_set=None)
+                for disItemset in user_proxy.discoutableItems(ultraNode, accItemset):
+                    discount = user_proxy._min_discount(ultraNode, accItemset, disItemset)
                     discount = math.ceil(discount*100)/100 # 無條件進位到小數點第二位
                     disItemset = self._itemset.difference(disItemset, accItemset)
                     coupon = Coupon(accItemset.price, accItemset, discount, disItemset)
                     
                     start = time.time()
-                    if i != leaf_level:
-                        margin_benfit = self._locally_estimate(level_clusters[i], level_clusters[min(i+1, leaf_level)], coupon)
-                    else:
-                        margin_benfit = self._locally_estimate(level_clusters[i], [], coupon)
-                    # print("Local estimation for level {}: {}".format(i, time.time()-start))
-                    if margin_benfit >= max_local_benfit:
-                        max_local_benfit = margin_benfit
+
+                    # local 的評估
+                    local_revenue = 0
+                    for subgraph in cluster_subgraphs:
+                        if i != self._depth:
+                            local_revenue += self._locally_estimate(current_level_superNodes, next_level_superNodes, coupon)
+                        else:
+                            local_revenue += self._locally_estimate(current_level_superNodes, [], coupon)
+                    local_revenue /= len(cluster_subgraphs)
+
+
+                    # TODO:
+                    # 一個cluster只取一張效益最高的coupon，並按照收益做排序
+                    if local_revenue >= max_local_revenue:
+                        max_local_revenue = local_revenue
                         max_local_margin_coupon = coupon
 
             start = time.time()
@@ -209,9 +250,7 @@ class Algorithm:
                     coupons.append(max_local_margin_coupon)
                     self._model.setCoupons(coupons)
                 
-                if len(coupons) >= self._limitNum:
-                    break
-        self._model.setGraph(self._graph)
+                
         self._model.setCoupons([])
         return coupons
     
@@ -258,16 +297,14 @@ class Algorithm:
         
          
         tagger = self._parallel(-1, [])
-
-        if len(candidatedCoupons) == 0 or self._limitNum == 0:
-            return [], tagger
+        yield [], tagger
         
         coupons = [(i, [candidatedCoupons[i]]) for i in range(len(candidatedCoupons))]
         revenue = tagger["TagRevenue"].expected_amount()
         output = [] # the coupon set which is maximum revenue
 
         with Pool(cpu_count()) as pool:
-            while len(candidatedCoupons) != 0 and len(output) < self._limitNum:
+            while len(candidatedCoupons) != 0:
                 '''
                     1. Simulate with all candidated coupon
                     2. Get the coupon which can maximize revenue, and delete it from the candidatings
@@ -296,12 +333,12 @@ class Algorithm:
                 else:
                     break
             
-        return output, tagger
+                yield output, tagger
     
     def optimalAlgo(self, candidatedCoupons:list, num_coupons:int):
 
-        if num_coupons > self._limitNum or num_coupons > len(candidatedCoupons):
-            raise ValueError("The size of coupon set should be less K or the number of candidated coupons.")
+        # if num_coupons > self._limitNum or num_coupons > len(candidatedCoupons):
+        #     raise ValueError("The size of coupon set should be less K or the number of candidated coupons.")
         
         pool = Pool(cpu_count())
         candidatedCoupons = candidatedCoupons[:]
@@ -354,46 +391,46 @@ class Algorithm:
 
         return neighbors_solution
 
-    def simulated_annealing(self, candidatedCoupons, initial_temperature=10000, cooling_rate=2, number_inner_iter=1000, stopping_temperature=1000): # pragma: no cover
+    # def simulated_annealing(self, candidatedCoupons, initial_temperature=10000, cooling_rate=2, number_inner_iter=1000, stopping_temperature=1000): # pragma: no cover
 
-        current_solution = []
-        current_temperature = initial_temperature
-        # the key is the combination of index of candidatedCoupons with increasing, 
-        # and the value is the reverse of result in whole diffusion.
-        count_inner_iter = 0
-        couponSzie = min(len(candidatedCoupons), self._limitNum)
+    #     current_solution = []
+    #     current_temperature = initial_temperature
+    #     # the key is the combination of index of candidatedCoupons with increasing, 
+    #     # and the value is the reverse of result in whole diffusion.
+    #     count_inner_iter = 0
+    #     couponSzie = min(len(candidatedCoupons), self._limitNum)
 
-        while current_temperature > stopping_temperature:
+    #     while current_temperature > stopping_temperature:
 
-            new_solution = []
-            while len(new_solution) <= couponSzie:
-                new_solution = self._move(current_solution, candidatedCoupons)
+    #         new_solution = []
+    #         while len(new_solution) <= couponSzie:
+    #             new_solution = self._move(current_solution, candidatedCoupons)
 
-            pool = Pool(cpu_count())
-            args = [("current", current_solution, self._max_expected_len), ("new", new_solution, self._max_expected_len)]
-            result = pool.map(self._parallel, args)
-            pool.close()
-            pool.join()
+    #         pool = Pool(cpu_count())
+    #         args = [("current", current_solution, self._max_expected_len), ("new", new_solution, self._max_expected_len)]
+    #         result = pool.map(self._parallel, args)
+    #         pool.close()
+    #         pool.join()
 
-            # objective function(new_solution) - objective function(current_solution)
-            delta = result[1]["TagRevenue"].expected_amount() - result[0]["TagRevenue"].expected_amount()
-            tagger = result[0]
+    #         # objective function(new_solution) - objective function(current_solution)
+    #         delta = result[1]["TagRevenue"].expected_amount() - result[0]["TagRevenue"].expected_amount()
+    #         tagger = result[0]
 
-            if delta > 0:
-                current_solution = new_solution
-                tagger = result[1]
-            else:
-                acceptance_probability = math.exp(delta / current_temperature)
-                if random.random() < acceptance_probability:
-                    current_solution = new_solution
-                    tagger = result[1]
+    #         if delta > 0:
+    #             current_solution = new_solution
+    #             tagger = result[1]
+    #         else:
+    #             acceptance_probability = math.exp(delta / current_temperature)
+    #             if random.random() < acceptance_probability:
+    #                 current_solution = new_solution
+    #                 tagger = result[1]
                     
-            count_inner_iter += 1
-            if count_inner_iter > number_inner_iter:
-                current_temperature -= cooling_rate
-                count_inner_iter = 0
+    #         count_inner_iter += 1
+    #         if count_inner_iter > number_inner_iter:
+    #             current_temperature -= cooling_rate
+    #             count_inner_iter = 0
 
-        return current_solution, tagger
+    #     return current_solution, tagger
     
 # class DynamicProgram:
 #     def __init__(self, model, k):
