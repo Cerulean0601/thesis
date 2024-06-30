@@ -6,32 +6,30 @@ from itertools import combinations
 from os import cpu_count
 import random, math
 import time
+from copy import deepcopy
 
 from package.tag import *
 from package.model import DiffusionModel
 from package.social_graph import SN_Graph
 from package.cluster_graph import ClusterGraph
-from package.coupon import Coupon
-from package.utils import dot
+from package.coupon import Coupon, CouponRevenueMaxHeap
+from package.utils import dot, aggregate_super_nodes
 
 class Algorithm:
-    def __init__(self, model:DiffusionModel, depth, cluster_theta=0.9, simulationTimes=1, num_sampledGraph=50):
+    def __init__(self, model:DiffusionModel, simulationTimes=1):
         self._model = model
         self._graph = model.getGraph()
-        self._reset_graph = None # Cluster
         self._itemset = model.getItemsetHandler()
-        self._max_expected = dict()
+        # self._max_expected = dict()
         # self._limitNum = k
-        self._num_sampledGraph = num_sampledGraph
-        self._depth = depth
-        self._cluster_theta = cluster_theta
-        if type(self._graph) == SN_Graph:
-            self._max_expected_len, self._max_expected_path = SN_Graph.max_product_path(self._graph, self._model.getSeeds())
+        # if type(self._graph) == SN_Graph:
+        #     self._max_expected_len, self._max_expected_path = SN_Graph.max_product_path(self._graph, self._model.getSeeds())
         self.simulationTimes = simulationTimes
 
     def setGraph(self, graph):
         self._graph = graph
         self._model.setGraph(graph)
+        self._model.influencedNodes = list()
 
     def getGraph(self, ):
         return self._graph
@@ -39,8 +37,8 @@ class Algorithm:
     # def setLimitCoupon(self, k):
     #     self._limitNum = k
 
-    def resetGraph(self):
-        self.setGraph(copy.deepcopy(self._reset_graph))
+    # def resetGraph(self):
+    #     self.setGraph(copy.deepcopy(self._reset_graph))
 
     # def calculateMaxExpProbability(self):
     #     G = self._graph
@@ -76,9 +74,10 @@ class Algorithm:
                 a list of coupons
         '''
         items = self._itemset.getSingleItems()
+        item_obj = [self._itemset[numbering] for numbering in items]
         coupons = list()
 
-        for item in items:
+        for item in item_obj:
             for discount in discounts:
                 if discount <= 0 or discount > 1:
                     raise ValueError("the discount of coupon should be float type and positive.")
@@ -114,7 +113,8 @@ class Algorithm:
         predecessor_adopt = dict()
 
         for cluster in clusters:
-            cluster_data = copy.deepcopy(user_proxy._graph.nodes[cluster])
+            cluster_data = copy.copy(user_proxy._graph.nodes[cluster])
+            cluster_data["adopted_records"] = deepcopy(cluster_data["adopted_records"])
             adopted_result = user_proxy.adopt(cluster)
             nx.set_node_attributes(graph, {cluster:cluster_data})
             if adopted_result:
@@ -125,16 +125,20 @@ class Algorithm:
             for cluster in post_cluster:
                 pre_edges = list(filter(lambda x: (x[0] in clusters) and (x[0] in predecessor_adopt), graph.in_edges(nbunch=cluster, data="weight")))
                 if pre_edges:
-                    u,v,w = max(pre_edges, key=lambda x: x[2] )
+                    u,v,w = min(pre_edges, key=lambda x: x[2] )
                     self._model._propagate(u, v, predecessor_adopt[u])
+                    graph.edges[u,v]["is_tested"] = False
                     mainItemset = user_proxy._adoptMainItemset(v)
                     if mainItemset:
-                        revenue += mainItemset["items"].price
+                        revenue += mainItemset["items"].price*w
         
         user_proxy.setCoupons(coupons)
         return revenue
     
-    def _globally_estimate(self, coupon:Coupon = None) -> float:
+    def _globally_estimate(self, depth, coupon:Coupon = None) -> float:
+        '''
+            計算 coupon 的邊際效益
+        '''
         graph = self._model.getGraph()
         if not isinstance(graph, ClusterGraph):
             raise TypeError("The type of graph should be ClusterGraph.")
@@ -142,115 +146,205 @@ class Algorithm:
         coupons = self._model.getCoupons()
         if coupon:
             self._model.setCoupons(coupons + [coupon])
-        self._model.setGraph(copy.deepcopy(self._reset_graph))
 
+        seeds = self._model.getSeeds()
+        seeds_desired_set = dict()
+        for s in seeds:
+            seeds_desired_set[s] = copy.copy(self._graph.nodes[s]["desired_set"])
+
+        # 必須記錄之前層數被影響節點的狀態，才能在下一層從desired set挑選商品
+        nodes_attr = {str(u): copy.copy(self._graph.nodes[u]) for u in graph.influencedNodes + seeds}
+        for k in nodes_attr.keys():
+            nodes_attr[k]["adopted_records"] = deepcopy(nodes_attr[k]["adopted_records"])
+            
+        graph.resetGraph(seeds_desired_set)
         tagger = Tagger()
         tagger.setNext(TagEstimatedRevenue(graph=self._model.getGraph()))
-        self._model.diffusion(tagger, self._depth)
+        self._model.diffusion(tagger, depth)
 
         self._model.setCoupons(coupons)
-        self._model.setGraph(graph)
+
+        graph.resetGraph(seeds_desired_set)
+        set_node_attributes(graph, nodes_attr)
         return tagger["TagEstimatedRevenue"].amount()
     
-    def genSelfCoupons(self):
+    def genSelfCoupons(self, num_sampledGraph, depth, cluster_theta, jaccard_theta, subgraph_theta):
         print("Clustering the graph...")
         start = time.time()
 
         cluster_subgraphs = []
-        for i in range(self._num_sampledGraph):
+        if depth < 1:
+            raise ValueError("depth must be greater or equal to zero.\n")
+        for i in range(num_sampledGraph):
             subgraph = self._graph.bfs_sampling(roots=self._model.getSeeds())
             cluster_graph = ClusterGraph(graph = subgraph, 
                                         seeds = self._model.getSeeds(),
                                         located = False,
-                                        depth = self._depth,
-                                        theta = self._cluster_theta)
+                                        depth = depth,
+                                        theta = cluster_theta)
             cluster_subgraphs.append(cluster_graph)
 
         print("Execution time for clustering graph: {}".format(time.time() - start))
-        self.setGraph(cluster_graph)
-
         user_proxy = self._model.getUserProxy()
         coupons = []
 
-        global_benfit = self._globally_estimate([])
-        level_generators = [g.level_travesal(self._model.getSeeds(), self._depth) for g in cluster_subgraphs]
+        level_generators = [g.level_travesal(self._model.getSeeds(), depth) for g in cluster_subgraphs]
         current_level_superNodes = []
-        # 所有子圖的種子節點
-        for generator in level_generators:
-            current_level_superNodes.append(next(generator))
 
-        for i in range(self._depth):
-            print("Level: {}".format(i))
+        for generator in level_generators:
+            # 當前層數的所有super nodes
+            current_level_superNodes.append(next(generator))
+            
+        for d in range(depth+1):
+            print("Level: {}".format(d))
+            maxHeap = CouponRevenueMaxHeap(tuples=[])
 
             # 計算當前層數在沒有coupon的情況下，每張聚合子圖的平均收益
-            max_local_benfit = 0
+            local_revenue_without_coupon = 0
             next_level_superNodes = []
-            for generator in level_generators:
-                next_level_superNodes.append(next(generator))
+            
+            if d != depth:
+                for generator in level_generators:
+                        try:
+                            next_level_superNodes.append(next(generator))
+                        except StopIteration:
+                            next_level_superNodes.append([])
 
-            for subgraph in cluster_subgraphs:
-                if i != self._depth:
-                    max_local_benfit += self._locally_estimate(current_level_superNodes, next_level_superNodes)
+            for which_subgraph in range(len(cluster_subgraphs)):
+                self.setGraph(cluster_subgraphs[which_subgraph])
+                if d != depth:
+                    local_revenue_without_coupon += self._locally_estimate(current_level_superNodes[which_subgraph], next_level_superNodes[which_subgraph])
                 else:
-                    max_local_benfit += self._locally_estimate(current_level_superNodes, [])
-            max_local_benfit /= len(cluster_subgraphs)
+                    local_revenue_without_coupon += self._locally_estimate(current_level_superNodes[which_subgraph], [])
+            local_revenue_without_coupon /= len(cluster_subgraphs)
 
-            # TODO: 將相似的主商品聚合成一個super主商品，並且merge相似的super node變成super super node
-            # BUG: 當我針對每個super node產生主商品時，有可能不在可以產生coupon的商品範圍內I_coupon
-            # 將每個super node和相對應的主商品組成一組一組的tuple
 
-            max_local_margin_coupon = None
             superNodeItemsetTuples = []
-            for i in range(len(current_level_superNodes)):
-                self.setGraph(cluster_subgraphs[i]) # NOTE: 檢查model有沒有儲存或異動跟圖狀態有關的變數(節點、邊之類的)
-                super_nodes_same_graph = current_level_superNodes[i]
+            
+            for which_subgraph in range(len(current_level_superNodes)):
+                self.setGraph(cluster_subgraphs[which_subgraph]) # NOTE: 檢查model有沒有儲存或異動跟圖狀態有關的變數(節點、邊之類的)
+                super_nodes_same_graph = current_level_superNodes[which_subgraph]
                 for super_nodes in super_nodes_same_graph:
                     mainItemset = user_proxy._adoptMainItemset(super_nodes)
-                    if not mainItemset: # TODO: 如果沒有商品在I_coupon裡面，可以直接跳過
+
+                    # 將每個super node和相對應的主商品組成一組一組的tuple
+                    if mainItemset:
+                        superNodeItemsetTuples.append((super_nodes, which_subgraph, mainItemset['items']))
+
+            # 將分好的主商品與相對應super main itemset建立對映表
+            # {(主商品): super main itemset}
+            # 例如 {(A,B,C):A, (A,C):A, (C,E):(C,E)}
+            mainItemset_collection = [itemset[2] for itemset in superNodeItemsetTuples] 
+            merge_itemset = self._itemset.merge_itemset_with_jaccard(collection=mainItemset_collection, theta=jaccard_theta)
+            itemset2superItem = dict()
+            for super_main_itemset, itemsets in merge_itemset.items():
+                for itemset in itemsets:
+                    itemset2superItem[itemset] = super_main_itemset
+
+            # 把主商品在同一群的super node分在同一群
+            superNode_cluster = dict()
+            for superNode, which_subgraph, mainItemset in superNodeItemsetTuples:
+                label = itemset2superItem[mainItemset] # 相對應的 super main itemset
+                if label not in superNode_cluster:
+                    superNode_cluster[label] = list()
+                superNode_cluster[label].append((which_subgraph, superNode))
+            
+            # 再把 super node aggregate to a ultra node
+            for label, superNodes in superNode_cluster.items():
+
+                topic_vectors = [cluster_subgraphs[which_subgraph].nodes[superNode]["topic"] for which_subgraph, superNode in superNodes]
+                ultra_node_vectors, vectors_indice_group = aggregate_super_nodes(topic_vectors, cluster_theta)
+                for i in range(len(ultra_node_vectors)):
+                    group = vectors_indice_group[i]
+                    subgraph_participation = set()
+                    for index in group:
+                        subgraph_participation.add(superNodes[index][0])
+                        # 如果確定大於 subgraph theta 就不用再繼續計算了
+                        if len(subgraph_participation)/len(cluster_subgraphs) > subgraph_theta:
+                            break
+
+                    if len(subgraph_participation)/len(cluster_subgraphs) < subgraph_theta:
                         continue
-                    superNodeItemsetTuples.append(tuple(super_nodes, mainItemset))
-
-                # TODO: clustering main itemset and then clustering super nodes
-                superMainItemset = None
-                ultraNode = None
-                accItemset = superMainItemset
-
-                # NOTE: 這裡是work around的方法。ultra node 是多個super node聚合在一起，所以不會存在在子圖裡，只能先透過新增節點的方式。
-                self._graph.add_node(ultraNode, topic, desired_set=None, adopted_set=None)
-                for disItemset in user_proxy.discoutableItems(ultraNode, accItemset):
-                    discount = user_proxy._min_discount(ultraNode, accItemset, disItemset)
-                    discount = math.ceil(discount*100)/100 # 無條件進位到小數點第二位
-                    disItemset = self._itemset.difference(disItemset, accItemset)
-                    coupon = Coupon(accItemset.price, accItemset, discount, disItemset)
                     
-                    start = time.time()
+                    ultra_max_revenue = local_revenue_without_coupon
+                    ultra_max_coupon = None
 
-                    # local 的評估
-                    local_revenue = 0
-                    for subgraph in cluster_subgraphs:
-                        if i != self._depth:
-                            local_revenue += self._locally_estimate(current_level_superNodes, next_level_superNodes, coupon)
-                        else:
-                            local_revenue += self._locally_estimate(current_level_superNodes, [], coupon)
-                    local_revenue /= len(cluster_subgraphs)
+                    superMainItemset = label
+                    accItemset = superMainItemset
 
+                    # NOTE: 這裡是work around的方法。ultra node 是多個super node聚合在一起，所以不會存在在子圖裡，只能先透過新增節點的方式。
+                    ultraNode = str(time.time()) + "_ultra" # 用時間避免node id重複
+                    ultra_node_topic = ultra_node_vectors[i]
+                    self._graph.add_node(ultraNode, topic=ultra_node_topic, desired_set=None, adopted_set=None)
+                    for disItemset, discount in user_proxy.discoutableItemsWithDiscount(ultraNode, accItemset):
+                        discount = math.ceil(discount*100)/100 # 無條件進位到小數點第二位
+                        disItemset = self._itemset.difference(disItemset, accItemset)
+                        coupon = Coupon(accItemset.price, accItemset, discount, disItemset)
+                
+                        start = time.time()
 
-                    # TODO:
-                    # 一個cluster只取一張效益最高的coupon，並按照收益做排序
-                    if local_revenue >= max_local_revenue:
-                        max_local_revenue = local_revenue
-                        max_local_margin_coupon = coupon
+                        # local 的評估
+                        local_revenue = 0
+                        for which_subgraph in range(len(cluster_subgraphs)):
+                            self.setGraph(cluster_subgraphs[which_subgraph])
+                            if d != depth:
+                                local_revenue += self._locally_estimate(current_level_superNodes[which_subgraph], next_level_superNodes[which_subgraph], coupon)
+                            else:
+                                local_revenue += self._locally_estimate(current_level_superNodes[which_subgraph], [], coupon)
+                        local_revenue /= len(cluster_subgraphs)
+
+                        # 一個ultra node只取一張效益最高的coupon
+                        if local_revenue >= ultra_max_revenue:
+                            ultra_max_revenue = local_revenue
+                            ultra_max_coupon = coupon
+
+                    # 按照local評估出來的收益做排序，等當前層數都評估完後才用global評估
+                    if ultra_max_coupon:
+                        maxHeap.push(coupon=ultra_max_coupon, revenue=ultra_max_revenue)
 
             start = time.time()
-            if max_local_margin_coupon:
-                global_margin_benfit = self._globally_estimate(max_local_margin_coupon)
-                print("Global estimation for level: {}, {}".format(i, time.time()-start))
-                if global_margin_benfit >= global_benfit:
-                    global_benfit = global_margin_benfit
-                    coupons.append(max_local_margin_coupon)
+            global_revenue_with_current_coupon = 0
+            for subgraph in cluster_subgraphs:
+                self.setGraph(subgraph)
+                global_revenue_with_current_coupon += self._globally_estimate(depth=depth)
+            global_revenue_with_current_coupon /= len(cluster_subgraphs)
+
+            global_max_revenue = global_revenue_with_current_coupon
+            # global用Greedy的方式每次都加進一張，直到下一張不再增加收益就往下一層移動
+            while len(maxHeap) != 0:
+                _, coupon = maxHeap.pop()
+                
+                global_revenue = 0
+                for subgraph in cluster_subgraphs:
+                    self.setGraph(subgraph)
+                    global_revenue += self._globally_estimate(depth=depth, coupon=coupon)
+                global_revenue /= len(cluster_subgraphs)
+                
+                if global_revenue > global_max_revenue:
+                    print("Global estimation for level: {}, {}".format(i, time.time()-start))
+                    global_max_revenue = global_revenue
+                    coupons.append(coupon)
                     self._model.setCoupons(coupons)
-                
-                
+                else:
+                    maxHeap.clear()
+                    break
+            
+            # current_level_superNodes 的 index 對應到第幾張子圖
+            for which_subgraph in range(len(current_level_superNodes)):
+                each_subgraph = cluster_subgraphs[which_subgraph]
+                self._model.setGraph(each_subgraph)
+                for superNode in current_level_superNodes[which_subgraph]:
+                    data = copy.copy(each_subgraph.nodes[superNode])
+                    data["adopted_records"] = deepcopy(data["adopted_records"])
+                    adopted_result = user_proxy.adopt(superNode)
+                    if adopted_result:
+                        # 更新每一張子圖的下一層super node的desired_set
+                        for superNode_v in each_subgraph.neighbors(superNode):
+                            self._model._propagate(superNode, superNode_v, adopted_result["decision_items"])
+                            each_subgraph.edges[superNode, superNode_v]["is_tested"] = False
+
+            current_level_superNodes = next_level_superNodes
+
         self._model.setCoupons([])
         return coupons
     
@@ -265,11 +359,15 @@ class Algorithm:
         tagger.setNext(TagRevenue())
         tagger.setNext(TagActiveNode())
         
-        # bucket = dict()
+        seeds = self._model.getSeeds()
+        seeds_desired_set = dict()
+        for s in seeds:
+            seeds_desired_set[s] = copy.copy(self._graph.nodes[s]["desired_set"])
 
         for _ in range(self.simulationTimes):
-            model.resetGraph()
+            graph.resetGraph(seeds_desired_set)
             model.diffusion(tagger)
+            # graph.dumpAdoptedResults("./result/adopted_records.csv")
         #     path = self._max_expected_path
         #     for node, p in path.items():
         #         src = p[0]
@@ -295,7 +393,6 @@ class Algorithm:
         
         candidatedCoupons = candidatedCoupons[:]
         
-         
         tagger = self._parallel(-1, [])
         yield [], tagger
         
@@ -335,7 +432,7 @@ class Algorithm:
             
                 yield output, tagger
     
-    def optimalAlgo(self, candidatedCoupons:list, num_coupons:int):
+    def optimalAlgo(self, candidatedCoupons:list, max_k=None):
 
         # if num_coupons > self._limitNum or num_coupons > len(candidatedCoupons):
         #     raise ValueError("The size of coupon set should be less K or the number of candidated coupons.")
@@ -345,24 +442,33 @@ class Algorithm:
 
         couponsPowerset = []
         i = 0
-        for comb in combinations(candidatedCoupons, num_coupons):
-            couponsPowerset.append((i, list(comb)))
-            i += 1
+        tagger = self._parallel(-1, [])
+        maxRevenue = tagger["TagRevenue"].expected_amount()
 
-        result = pool.starmap(self._parallel, couponsPowerset)
+        size = 0
+        while True:
+            if max_k != None and size >= max_k:
+                break
+            size += 1
+            for comb in combinations(candidatedCoupons, size):
+                couponsPowerset.append((i, list(comb)))
+                i += 1
+
+            result = pool.starmap(self._parallel, couponsPowerset)
+
+            maxIndex = -1
+            for i in range(len(result)):
+                if result[i]["TagRevenue"].expected_amount() > maxRevenue:
+                    maxRevenue = result[i]["TagRevenue"].expected_amount()
+                    maxIndex = i
+
+            if maxIndex == -1:
+                break
+
+            yield couponsPowerset[maxIndex][1], result[maxIndex]
         
         pool.close()
         pool.join()
-        
-        maxRevenue = 0
-        maxIndex = 0
-
-        for i in range(len(result)):
-            if result[i]["TagRevenue"].expected_amount() > maxRevenue:
-                maxRevenue = result[i]["TagRevenue"].expected_amount()
-                maxIndex = i
-
-        return couponsPowerset[maxIndex][1], result[maxIndex]
     
     def _move(self, current_solution, candidated): # pragma: no cover
         neighbors_solution = current_solution[:]

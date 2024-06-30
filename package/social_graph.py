@@ -29,6 +29,10 @@ class SN_Graph(nx.DiGraph):
         super().__init__()
         self.located = located # 原圖是否為無向圖，若為無向圖則重定向為有向圖
         self.topic = node_topic
+        self.influencedNodes = []
+
+        # 調整edge權重參數測試用
+        random.seed(0)
 
     def __add__(self, another_G):
         '''
@@ -198,12 +202,31 @@ class SN_Graph(nx.DiGraph):
     def convertDirected(self):
         return self.located
 
+    def resetGraph(self, seeds_attr):
+        '''
+            回到種子分配完後，diffusion開始之前
+        '''
+        for u in self.influencedNodes:
+            self._initNode(u)
+            for v in self.neighbors(u):
+                self.edges[u, v]["is_tested"] = False
+
+        for s, desired_set in seeds_attr.items():
+            self.nodes[s]["desired_set"] = desired_set
+            self.nodes[s]["adopted_set"] = None
+            self.nodes[s]["adopted_records"] = []
+            for v in self.neighbors(s):
+                self.edges[s, v]["is_tested"] = False
+
+        self.influencedNodes = []
+
     def add_node(self, node_for_adding, **attr):
         super().add_node(node_for_adding, **attr)
         self._initNode(node_for_adding, **attr)
 
     def _weightingEdge(self, node):
-        return 1/self.in_degree(node)
+        # return 1/self.in_degree(node)
+        return random.uniform(0.7, 1)
 
     def _initEdge(self, src, det, **attr):
         self.edges[src, det]["weight"] = self._weightingEdge(det)
@@ -241,7 +264,20 @@ class SN_Graph(nx.DiGraph):
         
         for src, det in self.edges:
             self.edges[src, det]["is_tested"] = False
-            
+
+    def dumpAdoptedResults(self, file_path):
+        with open(file_path, 'a') as f:
+            for u, records in self.nodes(data='adopted_records'):
+                if records:
+                    for row in records:
+                        data = [u, row["mainItemset"], row["decision_items"], row["tradeOff_items"], row["coupon"], row["amount"], row["path_prob"]]
+                        for i in range(len(data)):
+                            if data[i] == None:
+                                data[i] = str(",,,")
+                            else:
+                                data[i] = str(data[i])
+                        f.write(",".join(data) + "\n")
+
     @staticmethod
     def max_product_path(graph, seeds, cutoff=10**(-6)):
 

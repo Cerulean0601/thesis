@@ -274,23 +274,39 @@ class UsersProxy():
                                     self._graph.nodes[user_id]["adopted_set"],
                                     trade["decision_items"])
 
-            self._graph.nodes[user_id]["adopted_records"].append([trade["tradeOff_items"], trade["coupon"], trade["amount"]])
+            self._graph.nodes[user_id]["adopted_records"].append({"mainItemset":trade["mainItemset"], 
+                                                                  "decision_items":trade["decision_items"], 
+                                                                  "tradeOff_items":trade["tradeOff_items"], 
+                                                                  "coupon":trade["coupon"], 
+                                                                  "amount":trade["amount"]})
             return trade
         else:
             return None
     
     def _min_discount(self, user_id, mainItemset, itemset) -> float:
         itemset = self._itemset[itemset]
-        return itemset.price - (dot(itemset.topic, self._graph.nodes[user_id]["topic"])/self._VP_ratio(user_id, mainItemset))
+        mainItemset = self._itemset[mainItemset]
+        user_topic = self._graph.nodes[user_id]["topic"]
+
+        return itemset.price - mainItemset.price*(dot(itemset.topic, user_topic)/dot(mainItemset.topic, user_topic))
     
-    def discoutableItems(self, user_id, mainItemset: Itemset) -> Iterator[Itemset]:
+    def discoutableItemsWithDiscount(self, user_id, mainItemset: Itemset) -> Iterator[tuple[Itemset,float]]:
+        '''
+            找到可折扣商品以及相對應的折扣價格
+        '''
         discoutable = []
         itemsetHandler = self._itemset
         node = self._graph.nodes[user_id]
 
         for itemset in itemsetHandler:
             if itemsetHandler.issuperset(itemset, mainItemset):
-                if dot(mainItemset.topic, node["topic"]) < dot(itemset.topic, node["topic"]) or \
-                self._VP_ratio(user_id, mainItemset) < self._VP_ratio(user_id, itemset):
-                    yield itemset
+                # 若 itemset 的CP值本來就大於主商品，只需要設定1塊錢
+                if self._VP_ratio(user_id, mainItemset) < self._VP_ratio(user_id, itemset):
+                    yield itemset, 1
+                else:
+                    min_discount = self._min_discount(user_id=user_id, mainItemset=mainItemset, itemset=itemset)
+                    # 折扣金額必須小於多買的商品的總價，且必須大於0
+                    if min_discount > 0 and min_discount < itemset.price - mainItemset.price:
+                        yield itemset, min_discount
+                
 

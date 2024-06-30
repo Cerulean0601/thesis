@@ -16,13 +16,13 @@ class Itemset():
         Structure of Itemset
     '''
 
-    def __init__(self, numbering:Iterable, price, topic):
+    def __init__(self, numbering:Iterable, price, topic, item2vec):
         if not isinstance(numbering, Iterable):
             raise TypeError('Numbering must be iterable')
         self.numbering = set(numbering)  if numbering else set()
         self.price = price
         self.topic = topic
-
+        self.item2vec = item2vec
     def __eq__(self, other):
     
         '''
@@ -80,7 +80,7 @@ class ItemRelation():
         for key in self._relation:
             yield self._relation[key]
     
-    def construct(self, dataset):
+    def construct(self, dataset, substitute_coff=1, complementary_coff=1):
         
         with open(dataset, "r", encoding="utf-8") as f:
             for line in f:
@@ -90,17 +90,17 @@ class ItemRelation():
 
                 also_view_set = also_view.split(" ")
                 for view_asin in also_view_set:
-                    self._relation[asin][view_asin] = 0
+                    self._relation[asin][view_asin] = substitute_coff
 
                 also_buy_set = also_buy.split(" ")
                 for buy_asin in also_buy_set:
                     if buy_asin in self._relation[asin]:
                         self._relation[asin][buy_asin] = 1
                     else:
-                        self._relation[asin][buy_asin] = 2
+                        self._relation[asin][buy_asin] = complementary_coff
 
         self._relation = pd.DataFrame.from_dict(self._relation)   
-        self._relation.fillna(0,inplace=True)
+        self._relation.fillna(1,inplace=True)
 
     # def construct(self, dataset):
 
@@ -154,7 +154,7 @@ class ItemsetFlyweight():
         For creating itemset instance with flyweight pattern 
     '''
     
-    def __init__(self, for_coupon_items, prices:dict, topic:TopicModel|dict, relation:ItemRelation = None) -> None:
+    def __init__(self, prices:dict, topic:TopicModel|dict, relation:ItemRelation = None) -> None:
         '''
             If item_file is None, prices and topics should be set.
             Args:
@@ -164,6 +164,7 @@ class ItemsetFlyweight():
         '''
         self.PRICE = prices # dict
         self.TOPIC = topic if type(topic) == dict else topic.getItemsTopic()
+        self._singleItems = sorted(list(self.PRICE.keys()))
         self._relation = relation
         self.size = len(list(prices.values()))
         self._map = dict()
@@ -191,9 +192,16 @@ class ItemsetFlyweight():
             itemset = self._map[key]
 
         else:
-            itemset = Itemset(sortedNum,
-                        sum([self.PRICE[i] for i in sortedNum]),
-                        self._aggregateTopic(sortedNum) if key not in self.TOPIC else self.TOPIC[key] # 如果組合只有一件商品，從TOPIC取就好
+            item2vec = []
+            for singleItem in self.getSingleItems():
+                if singleItem in sortedNum:
+                    item2vec.append(1)
+                else:
+                    item2vec.append(0)
+            itemset = Itemset(numbering=sortedNum,
+                        price=sum([self.PRICE[i] for i in sortedNum]),
+                        topic=self._aggregateTopic(sortedNum) if key not in self.TOPIC else self.TOPIC[key], # 如果組合只有一件商品，從TOPIC取就好
+                        item2vec=item2vec
                         )
             self._map[key] = itemset
 
@@ -205,8 +213,8 @@ class ItemsetFlyweight():
         for obj in self.powerSet(numbering_of_items):
             yield obj
 
-    def getSingleItems(self) -> list[Itemset]:
-        return [obj for obj in self.__iter__() if len(obj) == 1]
+    def getSingleItems(self) -> list[str]:
+        return self._singleItems
     
     def _aggregateTopic(self, collection):
         if not collection:
@@ -219,7 +227,7 @@ class ItemsetFlyweight():
                     coeff += self._relation[i, j]
 
         # n 個商品會有n*(n-1)條關係
-        n = len(aggregated)
+        n = len(collection)
         coeff = coeff / (n*(n-1))
 
         topic_list = []
@@ -310,6 +318,64 @@ class ItemsetFlyweight():
                 itemset = self.__getitem__(combination)
                 yield itemset
     
+    # 計算兩個向量之間的Jaccard指數
+    def jaccard_index(self, vec1, vec2) -> float:
+        intersection = np.sum(np.logical_and(vec1, vec2))  # 計算交集
+        union = np.sum(np.logical_or(vec1, vec2))         # 計算聯集
+        return intersection / union
+
+    # 找出具有最高Jaccard指數的向量對，如果有多個則判斷向量内積最高的選擇一對
+    def find_max_jaccard_pair(self, collection):
+        vectors = [itemset.item2vec for itemset in collection]
+        max_jaccard = 0
+        best_pair = (0,1)
+
+        # 遍歷所有可能的向量對
+        for i in range(len(vectors)):
+            for j in range(i + 1, len(vectors)):
+                jaccard = self.jaccard_index(vectors[i], vectors[j])
+                if jaccard > max_jaccard:
+                    max_jaccard = jaccard
+                    best_pair = (i, j)
+                elif jaccard == max_jaccard:
+                    max_i, max_j = best_pair[0], best_pair[1]
+                    dot = np.dot(collection[i].topic, collection[j].topic)
+                    if dot > np.dot(collection[max_i].topic, collection[max_j].topic):
+                        max_jaccard = jaccard
+                        best_pair = (i, j)
+    
+        return best_pair, max_jaccard
+
+    # 迭代地合併向量直到最高的Jaccard指數小於指定閾值，並記錄每個群組中的向量
+    def merge_itemset_with_jaccard(self, collection, theta):
+        groups = dict()
+        for itemset in collection:  # 初始每個向量各自為一個群組
+            groups[itemset] = [itemset] 
+
+        while True:
+            itemsets = list(groups.keys())
+            if len(itemsets) <= 1 : # 全部的向量都被merge到同一個群組了
+                break
+
+            best_pair, max_jaccard = self.find_max_jaccard_pair(itemsets)
+            if max_jaccard < theta:  # 如果最高的Jaccard指數小於閾值，停止合併
+                break
+
+            i, j = best_pair
+            new_itemset = self.intersection(itemsets[i], itemsets[j])  # 合併選定的向量對
+
+            # 更新群組信息
+            new_group = groups[itemsets[i]] + groups[itemsets[j]]
+
+            # 移除已合併的群組
+            del groups[itemsets[i]]
+            del groups[itemsets[j]]
+
+            # 添加新合併的群組
+            groups[new_itemset] = new_group
+
+        return groups
+        
     # def candidatedCouponItems(self, size, root):
     #     num_substitutions = size//2
     #     num_complementations = size - num_substitutions

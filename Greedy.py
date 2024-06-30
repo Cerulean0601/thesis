@@ -7,7 +7,8 @@ import numpy as np
 DATA_ROOT = "./data"
 DBLP_PATH = DATA_ROOT + "/dblp"
 AMAZON_PATH = DATA_ROOT + "/amazon"
-FACEBOOK_PATH = DATA_ROOT + "/facebook"
+AMAZON_NETWORK_PATH = DATA_ROOT + "/amazon_network"
+FACEBOOK_PATH = DATA_ROOT + "/facebook_smallest"
 NOTIFY_ENDPOINT = r"https://notify.run/O6EfLmG6Tof1s5DljYB7"
 CLUB_PATH = DATA_ROOT + "/Karate Club Network"
 
@@ -65,7 +66,7 @@ RELATION = pd.DataFrame.from_dict({
             }
             })
 
-GRAPH = CLUB_PATH
+GRAPH = FACEBOOK_PATH
 def main():
     items = read_items(AMAZON_PATH + "/sample_items.csv")
 
@@ -75,15 +76,14 @@ def main():
 
     graph = SN_Graph.construct(GRAPH + "/edges", topicModel, located=False)
     relation = ItemRelation()
-    relation.construct(AMAZON_PATH + "/sample_items.csv")
+    relation.construct(AMAZON_PATH + "/sample_items.csv", substitute_coff=0.8, complementary_coff=1.2)
 
     # 選擇可以產生coupon的商品
-    for_coupon_items = []
-    for asin, attr in items.items():
-        if attr["for_coupon"] == '1':
-            for_coupon_items.append(asin)
-    itemset = ItemsetFlyweight(for_coupon_items=for_coupon_items,
-                               prices=getItemsPrice(AMAZON_PATH + "/sample_items.csv"), 
+    # for_coupon_items = []
+    # for asin, attr in items.items():
+    #     if attr["for_coupon"] == '1':
+    #         for_coupon_items.append(asin)
+    itemset = ItemsetFlyweight(prices=getItemsPrice(AMAZON_PATH + "/sample_items.csv"), 
                                topic=topicModel, 
                                relation=relation)
 
@@ -93,20 +93,29 @@ def main():
 
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
 
-    simluation_times = 10000
-    algo = Algorithm(model, depth=3, simulationTimes = simluation_times)
+    simluation_times = 1000
+    algo = Algorithm(model, simulationTimes = simluation_times)
 
-    performanceFile = r"./result/greedy.txt"
+    performanceFile = r"./result/test.txt"
     candidatedCoupons = algo.genAllCoupons(5)
     # candidatedCoupons = algo.genDiscountItemCoupons(list(np.arange(0.1, 1, 0.1)))
     # candidatedCoupons = algo.genFullItemCoupons(min(itemset.PRICE.values()), 5, list(np.arange(0.1, 1, 0.1)))
-
-    generator = algo.simulation(candidatedCoupons)
-    start_time = time()
+    generator = algo.optimalAlgo(candidatedCoupons, 1)
     
-    for outputCoupons, tagger in generator:
-        end_time = time()
+    # coupons = [Coupon(24.95, itemset["B000DIMTEY"], 4.11, itemset["B00005NN16"]),
+    #            Coupon(18.99, itemset["B000JX5JGI"], 24.58, itemset["B000DIMTEY"]),
+    #            Coupon(5.99, itemset["B00005NN16"], 18.68, itemset["B000JX5JGI"]),
+    #            Coupon(5.99, itemset["B00005NN16"], 24.71, itemset["B000DIMTEY"])]
 
+    # generator = [algo._parallel(3, [coupons[0], coupons[1], coupons[2], coupons[3]])]
+    # generator = [(coupons,algo._parallel(3, coupons))]
+    # generator = [algo._parallel(-1, [])]
+    start_time = time()
+    max_revenue = 0
+    k = 0
+    for outputCoupons,tagger in generator:
+        end_time = time()
+                
         with open(performanceFile, "a") as record:
 
             record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},k={6}\n".format(
@@ -122,6 +131,7 @@ def main():
             for c in outputCoupons:
                 record.write(str(c) + "\n")
             record.write("\n")
+        k += 1        
 
 if __name__ == '__main__':
 

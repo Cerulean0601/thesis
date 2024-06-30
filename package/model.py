@@ -35,13 +35,6 @@ class DiffusionModel():
         self._user_proxy.setGraph(newGraph)
         self._graph = newGraph
     
-    def resetGraph(self):
-        graph = self._graph
-        for u in self.influencedNodes:
-            graph._initNode(u)
-            for v in graph.neighbors(u):
-                graph._initEdge(u, v)
-
     def getItemsetHandler(self):
         return self._itemset
 
@@ -140,7 +133,7 @@ class DiffusionModel():
                 node_id = det
                 
                 trade = self._user_proxy.adopt(node_id)
-                
+                self._graph.nodes[node_id]["adopted_records"][-1]["path_prob"] = path_prob
                 # 如果沒購買任何東西則跳過此使用者不做後續的流程
                 if trade == None:
                     if "TagNonActive" in tagger:
@@ -179,7 +172,7 @@ class DiffusionModel():
                     if is_activated:
                         weight = self._graph.edges[node_id, out_neighbor]["weight"]
                         adoptionQueue.put((node_id, out_neighbor, path_prob*weight))
-                        self.influencedNodes.append(out_neighbor)
+                        self._graph.influencedNodes.append(out_neighbor)
                 propagatedQueue.task_done()
     
     # def save(self, dir_path):

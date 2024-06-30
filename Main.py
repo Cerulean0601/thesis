@@ -10,7 +10,9 @@ from os import cpu_count
 DATA_ROOT = "./data"
 DBLP_PATH = DATA_ROOT + "/dblp"
 AMAZON_PATH = DATA_ROOT + "/amazon"
-FACEBOOK_PATH = DATA_ROOT + "/facebook"
+AMAZON_NETWORK_PATH = DATA_ROOT + "/amazon_network"
+
+FACEBOOK_PATH = DATA_ROOT + "/facebook_smallest"
 CLUB_PATH = DATA_ROOT + "/Karate Club Network"
 NOTIFY_ENDPOINT = r"https://notify.run/O6EfLmG6Tof1s5DljYB7"
 
@@ -25,7 +27,7 @@ def test():
 
 import pandas as pd
 import networkx as nx
-from copy import deepcopy
+from copy import deepcopy, copy
 import numpy as np
 
 from package.tag import Tagger, TagRevenue, TagActiveNode
@@ -70,9 +72,11 @@ RELATION = pd.DataFrame.from_dict({
             }
             })
 
-GRAPH = FACEBOOK_PATH
-# TODO: 子圖數量從200,500,1000試試看
+GRAPH = AMAZON_NETWORK_PATH
 NUM_SUBGRAPH = 200
+SUB_COFF = 1
+COM_COFF = 1
+SIM_TIMES = 1000
 def main():
     items = read_items(AMAZON_PATH + "/sample_items.csv")
 
@@ -82,75 +86,102 @@ def main():
 
     graph = SN_Graph.construct(GRAPH + "/edges", topicModel, located=False)
     relation = ItemRelation()
-    relation.construct(AMAZON_PATH + "/sample_items.csv")
+    relation.construct(AMAZON_PATH + "/sample_items.csv", substitute_coff=SUB_COFF, complementary_coff=COM_COFF)
     itemset = ItemsetFlyweight(getItemsPrice(AMAZON_PATH + "/sample_items.csv"), topicModel, relation)
 
-    model = DiffusionModel(graph, itemset, threshold=10**(-5), name="amazon in dblp")
+    model = DiffusionModel(graph, itemset, threshold=10**(-7), name="amazon in dblp")
     seed_size = min(itemset.size, graph.number_of_nodes())
     seeds = model.selectSeeds(seed_size)
     model.allocate(seeds, [itemset[asin] for asin in itemset.PRICE.keys()])
-    algo = Algorithm(model, k=20, depth=4, cluster_theta=0.4)
+    algo = Algorithm(model)
     
-    NUM_USAGE_CPU = (cpu_count()*2)//3
-    pool = Pool(NUM_USAGE_CPU)
-    for depth in range(1,3):
-        algo._depth = depth
-        # theta = np.arange(0, 1.1, 0.1)
-        theta = [0,0.2,0.4,0.6,0.8,1]
-        for cluster_theta in theta:
-            algo._cluster_theta = cluster_theta
+    # NUM_USAGE_CPU = (cpu_count()*2)//3
+    # pool = Pool(NUM_USAGE_CPU)
+    jaccard_theta = 1
+    for subgraph_theta in [0.2,0.4,0.6,0.8,1]:
+        for jaccard_theta in [0.2,0.4,0.6,0.8,1]:
+            for depth in range(1,2):
+                # theta = np.arange(0, 1.1, 0.1)
+                theta = [0.2,0.4,0.6,0.8]
+                for cluster_theta in theta:
 
-            coupons_each_subgraph = list()
-            start_time = time()
-            for i in range(NUM_SUBGRAPH):
-                subgraph = graph.bfs_sampling(roots=model.getSeeds())
-                algo.setGraph(subgraph)
-                coupons = algo.genSelfCoupons()
-                coupons_each_subgraph.append(coupons)
-            end_time = time()
+                    start_time = time()
+                    coupons = algo.genSelfCoupons(num_sampledGraph=NUM_SUBGRAPH, 
+                                        depth=depth, cluster_theta=cluster_theta, 
+                                        jaccard_theta=jaccard_theta, 
+                                        subgraph_theta=subgraph_theta)
+                    end_time = time()
 
-            print("time:{}".format(end_time-start_time))
+                    print("time:{}".format(end_time-start_time))
 
-            print("Simulate Diffusion...")
-            start = time()
-            algo.setGraph(graph)
-            
-            tagger = Tagger()
-            tagger.setNext(TagRevenue())
-            tagger.setNext(TagActiveNode())
-            
-            # for coupons in coupons_each_subgraph:
-            model.setCoupons(coupons)
-            times = 1000
-            algo.simulationTimes = times
-            result = pool.starmap(algo._parallel, [(i, coupons_each_subgraph[i]) for i in range(NUM_SUBGRAPH)])
-            for t in result:
-                tagger["TagRevenue"]._amount += t["TagRevenue"]._amount
-                tagger["TagRevenue"]._expected_amount += t["TagRevenue"]._expected_amount
-                tagger["TagActiveNode"]._amount += t["TagActiveNode"]._amount
-                tagger["TagActiveNode"]._expected_amount += t["TagActiveNode"]._expected_amount
+                    print("Simulate Diffusion...")
+                    start = time()
+                    algo.setGraph(graph)
+                    
+                    tagger = Tagger()
+                    tagger.setNext(TagRevenue())
+                    tagger.setNext(TagActiveNode())
+                    
+                    # for coupons in coupons_each_subgraph:
+                    model.setCoupons(coupons)
 
-            tagger["TagRevenue"].avg(NUM_SUBGRAPH)
-            tagger["TagActiveNode"].avg(NUM_SUBGRAPH)
+                    seeds_attr = {str(seed): copy(graph.nodes[seed]["desired_set"]) for seed in model.getSeeds()}
+                    revenue = 0
+                    expected_revenue = 0
+                    num_active_nodes = 0
+                    expcted_active_nodes = 0
 
-            performanceFile = r"./result/depth_" + str(depth) + ".txt"
-            with open(performanceFile, "a") as record:
-                record.write("{0},runtime={1},revenue={2},expected_revenue={3},active_node={4},expected_active_node={5},cluster_theta={6}\n".format(
-                    ctime(end_time),
-                    (end_time - start_time),
-                    tagger["TagRevenue"].amount(),
-                    tagger["TagRevenue"].expected_amount(),
-                    tagger["TagActiveNode"].amount(),
-                    tagger["TagActiveNode"].expected_amount(),
-                    cluster_theta
-                    ))
+                    graph.resetGraph(seeds_attr)
+                    for i in range(SIM_TIMES):
+                        tagger = Tagger()
+                        tagger.setNext(TagRevenue())
+                        tagger.setNext(TagActiveNode())
+                        # for n in graph.nodes():
+                        #     if graph.nodes[n]["adopted_set"]:
+                        #         raise ValueError("")
+                        # for u,v in graph.edges():
+                        #     if graph.edges[u,v]["is_tested"]:
+                        #         raise ValueError("")
+                        
+                        #     if "is_active" in graph.edges[u,v]:
+                        #         if graph.edges[u,v]["is_active"]:
+                        #             raise ValueError("")
+                            
+                        model.diffusion(tagger)
+                        graph = model.getGraph()
+                        
+                        graph.resetGraph(seeds_attr)
+                        revenue += tagger["TagRevenue"].amount()
+                        expected_revenue += tagger["TagRevenue"].expected_amount()
+                        num_active_nodes += tagger["TagActiveNode"].amount()
+                        expcted_active_nodes += tagger["TagActiveNode"].expected_amount()
+                        
 
-                for c in coupons:
-                    record.write(str(c) + "\n")
-                record.write("\n")
-            model.setCoupons([])
-    pool.close()
-    pool.join()
+                    revenue /= SIM_TIMES
+                    expected_revenue /= SIM_TIMES
+                    num_active_nodes /= SIM_TIMES
+                    expcted_active_nodes /= SIM_TIMES
+
+                    performanceFile = r"./result/depth_" + str(depth) + ".txt"
+                    with open(performanceFile, "a") as record:
+                        record.write("{},runtime={},revenue={},expected_revenue={},active_node={},expected_active_node={},cluster_theta={},jaccard_theta={},subgraph_theta={}\n".format(
+                            ctime(end_time),
+                            (end_time - start_time),
+                            revenue,
+                            expected_revenue,
+                            num_active_nodes,
+                            expcted_active_nodes,
+                            cluster_theta,
+                            jaccard_theta,
+                            subgraph_theta
+                            ))
+
+                        for c in coupons:
+                            record.write(str(c) + "\n")
+                        record.write("\n")
+                    model.setCoupons([])
+    # pool.close()
+    # pool.join()
 if __name__ == '__main__':
 
     # test()

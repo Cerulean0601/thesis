@@ -1,6 +1,6 @@
 from package.social_graph import SN_Graph
-from package.utils import at_least_one_probability, exactly_n_nodes
-from package.social_graph import SN_Graph
+# from package.utils import at_least_one_probability, exactly_n_nodes
+from package.utils import aggregate_super_nodes
 from package.topic import TopicModel
 
 import networkx as nx
@@ -71,7 +71,7 @@ class ClusterGraph(SN_Graph):
             attr["nodes"] = set([seed])
             current_level.put(seed)
 
-        for d in range(depth):
+        for d in range(depth+1):
             while not current_level.empty():
                 predecessor = current_level.get()
                 entity_nodes = self.nodes[predecessor]["nodes"]
@@ -81,73 +81,83 @@ class ClusterGraph(SN_Graph):
                     out_neighbors = out_neighbors.union(set(self._original_g.neighbors(node)))
                 
                 # print("depth {} , number of neighbors: {}".format(d, len(out_neighbors)))
-                out_neighbors = sorted(list(out_neighbors))
-                _cluster_neighbors = self._clustering(out_neighbors, theta)
-                for cluster in _cluster_neighbors:
-                    topic = sum([self._original_g.nodes[n]["topic"] for n in cluster], axis=0)
-                    topic = [t/len(cluster) for t in topic]
-                    node_name = ", ".join(sorted([str(n) for n in cluster]))
+                out_neighbors = list(out_neighbors)
+                super_nodes_topic, clustered_nodes = self._clustering(out_neighbors, theta)
+                
+                for i in range(len(clustered_nodes)):
+                    
+                    node_name = ", ".join([str(n) for n in sorted(clustered_nodes[i])])
 
                     if not self.has_node(node_name):
                         self.add_node(node_name, 
                                     desired_set = None, 
                                     adopted_set = None, 
-                                    nodes = cluster, 
-                                    topic = topic)
+                                    nodes = clustered_nodes[i], 
+                                    topic = super_nodes_topic[i])
                     
                     if not self.has_edge(predecessor, node_name):
-                        weight, exactly_n = self._weighting(predecessor, node_name)
-                        self.add_edge(predecessor, node_name, exactly_n=exactly_n, weight=weight, is_tested=False, is_active=True)
+                        # TODO
+                        self.add_edge(predecessor, node_name, weight=1, is_tested=False, is_active=True)
                         next_level.put(node_name)
 
             next_level, current_level = current_level, next_level
+
     def _clustering(self, nodes: list, theta: float) -> list[list]:
-        sum_cluster_vectors = []
-        cluster_nodes = []
+        vectors = [self._original_g.nodes[n]["topic"] for n in nodes]
+        super_nodes_topic, clusters = aggregate_super_nodes(vectors, theta)
+        clustered_nodes = []
+        for cluster in clusters:
+            collection = [nodes[node_index] for node_index in cluster]
+            clustered_nodes.append(collection)
 
-        if theta < -1 or theta > 1:
-            raise ValueError("Theta must be between [0,1]")
-        
-        for n in nodes:
-            topic = self._original_g.nodes[n]["topic"]
-            i = -1
-            max_cosine_sim = sys.float_info.min
-            # find the cluster which the node belongs to, that the cosine simlarity is minimum
-            for j in range(len(sum_cluster_vectors)):
-                avg_vector = [t/len(cluster_nodes[j]) for t in sum_cluster_vectors[j]]
-                cosine_sim = dot(topic, avg_vector)/(norm(topic)*norm(avg_vector))
-                if  cosine_sim > max_cosine_sim and cosine_sim >= theta:
-                    max_cosine_sim = cosine_sim
-                    i = j
+        return super_nodes_topic, clustered_nodes
+    # def _clustering(self, nodes: list, theta: float) -> list[list]:
+    #     sum_cluster_vectors = []
+    #     cluster_nodes = []
 
-            if i == -1:
-                sum_cluster_vectors.append(topic)
-                cluster_nodes.append(set([n]))
-            else:
-                cluster_nodes[i].add(n)
-                sum_cluster_vectors[i] = [sum(t) for t in zip(sum_cluster_vectors[i], topic)]
+    #     if theta < -1 or theta > 1:
+    #         raise ValueError("Theta must be between [0,1]")
         
-        return cluster_nodes
+    #     for n in nodes:
+    #         topic = self._original_g.nodes[n]["topic"]
+    #         i = -1
+    #         max_cosine_sim = sys.float_info.min
+    #         # find the cluster which the node belongs to, that the cosine simlarity is minimum
+    #         for j in range(len(sum_cluster_vectors)):
+    #             avg_vector = [t/len(cluster_nodes[j]) for t in sum_cluster_vectors[j]]
+    #             cosine_sim = dot(topic, avg_vector)/(norm(topic)*norm(avg_vector))
+    #             if  cosine_sim > max_cosine_sim and cosine_sim >= theta:
+    #                 max_cosine_sim = cosine_sim
+    #                 i = j
+
+    #         if i == -1:
+    #             sum_cluster_vectors.append(topic)
+    #             cluster_nodes.append(set([n]))
+    #         else:
+    #             cluster_nodes[i].add(n)
+    #             sum_cluster_vectors[i] = [sum(t) for t in zip(sum_cluster_vectors[i], topic)]
+        
+    #     return cluster_nodes
     
-    def _weighting(self, parent, children) -> float:
-        '''
-        若子節點在上一層有多個父節點，則計算至少被一個節點影響成功的機率
-        '''
-        probabilities = []
-        parent_nodes = self.nodes[parent]["nodes"]
-        for child in self.nodes[children]["nodes"]:
-            predecessors = set(self._original_g.predecessors(child)).intersection(parent_nodes)
-            if(len(predecessors) > 1):
-                pro = [self._original_g.edges[pre, child]["weight"] for pre in predecessors]
-                weight = min(at_least_one_probability(pro), 1)
-            elif(len(predecessors) == 1):
-                weight = self._original_g.edges[list(predecessors)[0], child]["weight"]
-            probabilities.append(weight)
+    # def _weighting(self, parent, children) -> float:
+    #     '''
+    #     若子節點在上一層有多個父節點，則計算至少被一個節點影響成功的機率
+    #     '''
+    #     probabilities = []
+    #     parent_nodes = self.nodes[parent]["nodes"]
+    #     for child in self.nodes[children]["nodes"]:
+    #         predecessors = set(self._original_g.predecessors(child)).intersection(parent_nodes)
+    #         if(len(predecessors) > 1):
+    #             pro = [self._original_g.edges[pre, child]["weight"] for pre in predecessors]
+    #             weight = min(at_least_one_probability(pro), 1)
+    #         elif(len(predecessors) == 1):
+    #             weight = self._original_g.edges[list(predecessors)[0], child]["weight"]
+    #         probabilities.append(weight)
         
-        prob_distribution = exactly_n_nodes(probabilities)
-        max_prob = max(prob_distribution)
+    #     prob_distribution = exactly_n_nodes(probabilities)
+    #     max_prob = max(prob_distribution)
 
-        return max_prob, prob_distribution.index(max_prob)
+    #     return max_prob, prob_distribution.index(max_prob)
 
         # return sum(probabilities)/len(probabilities), len(child)
     
